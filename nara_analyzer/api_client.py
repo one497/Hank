@@ -10,7 +10,7 @@
 
 import time
 import logging
-from urllib.parse import quote
+from urllib.parse import urlencode
 
 import requests
 
@@ -45,16 +45,22 @@ class NaraApiClient:
         self.session = requests.Session()
 
     def _request(self, endpoint: str, params: dict) -> dict:
-        """API 요청을 수행하고 JSON 응답을 반환합니다."""
-        url = BASE_URL + endpoint
+        """API 요청을 수행하고 JSON 응답을 반환합니다.
 
+        공공데이터포털 API의 ServiceKey는 이미 URL 인코딩된 상태로 제공되므로,
+        requests의 params 자동 인코딩을 사용하면 이중 인코딩이 발생합니다.
+        따라서 ServiceKey는 URL에 직접 붙이고, 나머지 파라미터만 인코딩합니다.
+        """
         request_params = {**DEFAULT_PARAMS, **params}
-        request_params["ServiceKey"] = self.api_key
+
+        # ServiceKey는 이미 인코딩된 상태이므로 URL에 직접 삽입
+        query_string = urlencode(request_params) + "&ServiceKey=" + self.api_key
+        url = BASE_URL + endpoint + "?" + query_string
 
         for attempt in range(1, self.max_retries + 1):
             try:
                 logger.debug("API 요청: %s (시도 %d/%d)", endpoint, attempt, self.max_retries)
-                resp = self.session.get(url, params=request_params, timeout=self.timeout)
+                resp = self.session.get(url, timeout=self.timeout)
                 resp.raise_for_status()
 
                 data = resp.json()
