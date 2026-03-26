@@ -16,15 +16,15 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# 공공데이터포털 나라장터 API 기본 URL
-BASE_URL = "http://apis.data.go.kr/1230000"
+# 공공데이터포털 나라장터 API 기본 URL (2025년 신규 서비스)
+BASE_URL = "https://apis.data.go.kr/1230000"
 
-# API 엔드포인트
+# API 엔드포인트 (신규 서비스: /as/ 경로 기반)
 ENDPOINTS = {
-    # 용역 입찰공고 목록 조회
-    "bid_notice_service": "/BidPublicInfoInfoService04/getBidPblancListInfoServc01",
-    # 용역 개찰결과 목록 조회
-    "bid_result_service": "/ScsbidInfoService/getScsbidListSttusServc",
+    # 용역 입찰공고 목록 조회 (입찰공고정보서비스)
+    "bid_notice_service": "/as/BidPublicInfoInfoService04/getBidPblancListInfoServc01",
+    # 용역 개찰결과 목록 조회 (낙찰정보서비스)
+    "bid_result_service": "/as/ScsbidInfoService/getOpengResultListInfoServcPPSSrch",
 }
 
 # 기본 요청 파라미터
