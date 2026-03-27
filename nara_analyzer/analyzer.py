@@ -112,13 +112,33 @@ class ServiceBidAnalyzer:
     def _parse_bid_records(
         self, raw_results: list, target_reg_nos: list[str]
     ) -> list[BidRecord]:
-        """원시 API 응답 데이터를 BidRecord로 파싱합니다."""
+        """원시 API 응답 데이터를 BidRecord로 파싱합니다.
+
+        getScsbidListSttusServcPPSSrch (낙찰된 목록 현황 용역조회) 응답 필드:
+        - bidNtceNo: 입찰공고번호
+        - bidNtceNm: 입찰공고명
+        - bidwinnrBizno: 최종낙찰업체사업자등록번호
+        - bidwinnrNm: 최종낙찰업체명
+        - sucsfbidAmt: 최종낙찰금액
+        - sucsfbidRate: 최종낙찰률 (이미 % 값)
+        - rlOpengDt: 실개찰일시 (YYYY-MM-DD HH:MM:SS)
+        - dminsttNm: 수요기관명
+        - prtcptCnum: 참가업체수
+        - rgstDt: 등록일시
+        - fnlSucsfDate: 최종낙찰일자
+
+        이 API의 모든 레코드는 낙찰 건입니다.
+        """
         records = []
         target_set = set(self._normalize_reg_no(r) for r in target_reg_nos)
 
         for item in raw_results:
+            # 낙찰된 목록 API: bidwinnrBizno 필드 우선
+            # 기존 개찰결과 API 호환: bsnsBzoperRegNo / dminsttBizrno
             reg_no = self._normalize_reg_no(
-                str(item.get("bsnsBzoperRegNo", item.get("dminsttBizrno", "")))
+                str(item.get("bidwinnrBizno",
+                    item.get("bsnsBzoperRegNo",
+                        item.get("dminsttBizrno", ""))))
             )
 
             # 대상 업체가 아니면 건너뜀
@@ -126,32 +146,62 @@ class ServiceBidAnalyzer:
                 continue
 
             try:
-                bid_amt = self._safe_float(item.get("bidprcAmt", 0))
-                presmpt_price = self._safe_float(
-                    item.get("presmptPrce", item.get("plnprc", 0))
+                # 낙찰된 목록 API 필드 처리
+                sucsfbid_rate = self._safe_float(item.get("sucsfbidRate", 0))
+                sucsfbid_amt = self._safe_float(item.get("sucsfbidAmt", 0))
+
+                if sucsfbid_rate > 0:
+                    # 낙찰된 목록 API: sucsfbidRate가 이미 낙찰률(%)
+                    bid_amt = sucsfbid_amt
+                    bid_rate = sucsfbid_rate
+                    # 낙찰금액과 낙찰률로 예정가격 역산
+                    presmpt_price = (bid_amt / bid_rate * 100) if bid_rate > 0 else 0.0
+                    base_amt = presmpt_price
+                    is_winner = True  # 낙찰된 목록이므로 모두 낙찰
+                    rank_val = 1
+                else:
+                    # 기존 개찰결과 API 호환
+                    bid_amt = self._safe_float(item.get("bidprcAmt", 0))
+                    presmpt_price = self._safe_float(
+                        item.get("presmptPrce", item.get("plnprc", 0))
+                    )
+                    base_amt = self._safe_float(item.get("bssamt", 0))
+                    reference_price = presmpt_price if presmpt_price > 0 else base_amt
+                    bid_rate = (bid_amt / reference_price * 100) if reference_price > 0 else 0.0
+                    rank_val = item.get("rnk", item.get("prcbdrRnk", 0))
+                    is_winner = (
+                        str(item.get("sucsfbidYn", "N")).upper() == "Y"
+                        or int(rank_val or 0) == 1
+                    )
+
+                # 업체명: bidwinnrNm 우선, 기존 필드 호환
+                comp_nm = str(
+                    item.get("bidwinnrNm",
+                        item.get("prcbdrBizNm", ""))
                 )
-                base_amt = self._safe_float(item.get("bssamt", 0))
 
-                # 투찰률 계산: 투찰금액 / 예정가격 × 100
-                reference_price = presmpt_price if presmpt_price > 0 else base_amt
-                bid_rate = (bid_amt / reference_price * 100) if reference_price > 0 else 0.0
+                # 개찰일시: rlOpengDt 우선, 기존 필드 호환
+                bid_date = str(
+                    item.get("rlOpengDt",
+                        item.get("opengDt",
+                            item.get("bidClseDt", "")))
+                )
 
-                rank_val = item.get("rnk", item.get("prcbdrRnk", 0))
-                is_winner = str(item.get("sucsfbidYn", "N")).upper() == "Y" or int(rank_val or 0) == 1
+                prtcpt_cnum = item.get("prtcptCnum", 0)
 
                 record = BidRecord(
                     bid_ntce_no=str(item.get("bidNtceNo", "")),
                     bid_ntce_nm=str(item.get("bidNtceNm", "")),
                     bid_ntce_ord=str(item.get("bidNtceOrd", "")),
                     bsns_reg_no=reg_no,
-                    comp_nm=str(item.get("prcbdrBizNm", item.get("bidwinnrNm", ""))),
+                    comp_nm=comp_nm,
                     bid_amt=bid_amt,
                     presmpt_price=presmpt_price,
                     base_amt=base_amt,
                     bid_rate=round(bid_rate, 4),
                     rank=int(rank_val or 0),
                     is_winner=is_winner,
-                    bid_date=str(item.get("opengDt", item.get("bidClseDt", ""))),
+                    bid_date=bid_date,
                     dmnd_instt_nm=str(item.get("dminsttNm", "")),
                 )
                 records.append(record)

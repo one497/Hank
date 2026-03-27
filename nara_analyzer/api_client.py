@@ -10,6 +10,7 @@
 
 import time
 import logging
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 import requests
@@ -23,16 +24,21 @@ BASE_URL = "https://apis.data.go.kr/1230000"
 ENDPOINTS = {
     # 용역 입찰공고 목록 조회 (입찰공고정보서비스)
     "bid_notice_service": "/as/BidPublicInfoInfoService04/getBidPblancListInfoServc01",
-    # 용역 개찰결과 목록 조회 (낙찰정보서비스)
-    "bid_result_service": "/as/ScsbidInfoService/getOpengResultListInfoServcPPSSrch",
+    # 낙찰된 목록 현황 용역조회 (사업자번호 검색 가능)
+    "bid_result_service": "/as/ScsbidInfoService/getScsbidListSttusServcPPSSrch",
+    # 개찰결과 용역 목록 조회
+    "opening_result_service": "/as/ScsbidInfoService/getOpengResultListInfoServcPPSSrch",
 }
 
 # 기본 요청 파라미터
 DEFAULT_PARAMS = {
     "type": "json",
-    "numOfRows": "100",
+    "numOfRows": "999",
     "pageNo": "1",
 }
+
+# 날짜 범위 분할 최대 일수 (에러 07 '입력범위값 초과' 방지)
+MAX_DATE_RANGE_DAYS = 31
 
 
 class NaraApiClient:
@@ -93,6 +99,23 @@ class NaraApiClient:
 
                 data = resp.json()
 
+                # nkoneps.com.response.ResponseError 래퍼 처리
+                if "nkoneps.com.response.ResponseError" in data:
+                    err_wrapper = data["nkoneps.com.response.ResponseError"]
+                    err_header = err_wrapper.get("header", {})
+                    err_code = str(err_header.get("resultCode", ""))
+                    err_msg = err_header.get("resultMsg", "Unknown error")
+                    guide = ""
+                    if err_code == "07":
+                        guide = (
+                            "\n조회 기간이 너무 깁니다. "
+                            "기간을 1개월 이내로 줄여서 다시 시도해주세요."
+                        )
+                    raise ApiError(
+                        f"API 오류: [{err_code}] {err_msg}{guide}\n"
+                        f"전체 응답: {str(data)[:500]}"
+                    )
+
                 # 공공데이터포털 응답 구조 파싱
                 # 구조 1: {"response": {"header": {...}, "body": {...}}}
                 # 구조 2: {"header": {...}, "body": {...}}
@@ -105,8 +128,14 @@ class NaraApiClient:
                     result_msg = header.get("resultMsg", header.get("message", "Unknown error"))
                     logger.error("API 오류: [%s] %s", result_code, result_msg)
                     logger.error("전체 응답: %s", str(data)[:1000])
+                    guide = ""
+                    if result_code == "07":
+                        guide = (
+                            "\n조회 기간이 너무 깁니다. "
+                            "기간을 1개월 이내로 줄여서 다시 시도해주세요."
+                        )
                     raise ApiError(
-                        f"API 오류: [{result_code}] {result_msg}\n"
+                        f"API 오류: [{result_code}] {result_msg}{guide}\n"
                         f"전체 응답: {str(data)[:500]}"
                     )
 
@@ -203,7 +232,9 @@ class NaraApiClient:
         end_date: str = None,
         bsns_reg_no: str = None,
     ) -> list:
-        """용역 개찰(투찰) 결과를 조회합니다.
+        """낙찰된 목록 현황 용역조회 (getScsbidListSttusServcPPSSrch).
+
+        사업자등록번호(bizno)로 검색 가능합니다.
 
         Args:
             bid_ntce_no: 입찰공고번호 (선택)
@@ -212,23 +243,98 @@ class NaraApiClient:
             bsns_reg_no: 사업자등록번호 (선택)
 
         Returns:
-            개찰결과 목록
+            낙찰 결과 목록
         """
-        params = {
-            "numOfRows": "100",
-        }
+        endpoint = ENDPOINTS["bid_result_service"]
 
+        # 날짜 범위가 있으면 자동 분할하여 조회
+        if start_date and end_date:
+            date_ranges = self._split_date_range(start_date, end_date)
+            all_items = []
+            for range_start, range_end in date_ranges:
+                params = {
+                    "numOfRows": "999",
+                    "inqryDiv": "1",  # 1=공고게시일시
+                    "inqryBgnDt": range_start + "0000",
+                    "inqryEndDt": range_end + "2359",
+                }
+                if bid_ntce_no:
+                    params["bidNtceNo"] = bid_ntce_no
+                if bsns_reg_no:
+                    params["bizno"] = bsns_reg_no
+                items = self._fetch_all_pages(endpoint, params)
+                all_items.extend(items)
+                logger.info(
+                    "기간 %s ~ %s 조회 완료: %d건", range_start, range_end, len(items)
+                )
+            return all_items
+
+        params = {
+            "numOfRows": "999",
+        }
         if bid_ntce_no:
             params["bidNtceNo"] = bid_ntce_no
-        if start_date and end_date:
-            params["inqryDiv"] = "1"
-            params["inqryBgnDt"] = start_date + "0000"
-            params["inqryEndDt"] = end_date + "2359"
         if bsns_reg_no:
-            params["bsnsDivCd"] = bsns_reg_no
-
-        endpoint = ENDPOINTS["bid_result_service"]
+            params["bizno"] = bsns_reg_no
         return self._fetch_all_pages(endpoint, params)
+
+    def get_opening_results(
+        self,
+        start_date: str = None,
+        end_date: str = None,
+    ) -> list:
+        """개찰결과 용역 목록 조회 (getOpengResultListInfoServcPPSSrch).
+
+        Args:
+            start_date: 검색 시작일 (YYYYMMDD, 선택)
+            end_date: 검색 종료일 (YYYYMMDD, 선택)
+
+        Returns:
+            개찰결과 목록
+        """
+        endpoint = ENDPOINTS["opening_result_service"]
+
+        if start_date and end_date:
+            date_ranges = self._split_date_range(start_date, end_date)
+            all_items = []
+            for range_start, range_end in date_ranges:
+                params = {
+                    "numOfRows": "999",
+                    "inqryDiv": "1",  # 1=공고일시
+                    "inqryBgnDt": range_start + "0000",
+                    "inqryEndDt": range_end + "2359",
+                }
+                items = self._fetch_all_pages(endpoint, params)
+                all_items.extend(items)
+                logger.info(
+                    "개찰결과 기간 %s ~ %s 조회 완료: %d건",
+                    range_start, range_end, len(items),
+                )
+            return all_items
+
+        params = {"numOfRows": "999"}
+        return self._fetch_all_pages(endpoint, params)
+
+    @staticmethod
+    def _split_date_range(start_date: str, end_date: str) -> list[tuple[str, str]]:
+        """날짜 범위를 MAX_DATE_RANGE_DAYS 이하 구간으로 분할합니다.
+
+        Args:
+            start_date: 시작일 (YYYYMMDD)
+            end_date: 종료일 (YYYYMMDD)
+
+        Returns:
+            (시작일, 종료일) 튜플 리스트
+        """
+        start = datetime.strptime(start_date, "%Y%m%d")
+        end = datetime.strptime(end_date, "%Y%m%d")
+        ranges = []
+        current = start
+        while current <= end:
+            range_end = min(current + timedelta(days=MAX_DATE_RANGE_DAYS - 1), end)
+            ranges.append((current.strftime("%Y%m%d"), range_end.strftime("%Y%m%d")))
+            current = range_end + timedelta(days=1)
+        return ranges
 
 
 class ApiError(Exception):
