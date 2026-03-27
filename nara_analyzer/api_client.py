@@ -61,7 +61,35 @@ class NaraApiClient:
             try:
                 logger.debug("API 요청: %s (시도 %d/%d)", endpoint, attempt, self.max_retries)
                 resp = self.session.get(url, timeout=self.timeout)
-                resp.raise_for_status()
+
+                # HTTP 오류 처리
+                if resp.status_code != 200:
+                    raise ApiError(
+                        f"HTTP {resp.status_code} 오류.\n"
+                        f"응답: {resp.text[:500]}\n"
+                        f"확인 사항:\n"
+                        f"  1. 공공데이터포털에서 해당 API 활용신청이 승인되었는지 확인\n"
+                        f"  2. API 키가 올바른지 확인 (Encoding 키 사용)"
+                    )
+
+                # XML 응답인 경우 (인증 실패 등)
+                content_type = resp.headers.get("Content-Type", "")
+                text = resp.text.strip()
+                if "xml" in content_type or text.startswith("<?xml") or text.startswith("<"):
+                    # XML에서 에러 메시지 추출
+                    import re
+                    code_match = re.search(r"<returnReasonCode>(.*?)</returnReasonCode>", text)
+                    msg_match = re.search(r"<returnAuthMsg>(.*?)</returnAuthMsg>", text)
+                    err_code = code_match.group(1) if code_match else "UNKNOWN"
+                    err_msg = msg_match.group(1) if msg_match else text[:300]
+
+                    error_guide = {
+                        "SERVICE_KEY_IS_NOT_REGISTERED_ERROR": "API 키가 등록되지 않았습니다. 공공데이터포털에서 해당 서비스의 활용신청을 해주세요.",
+                        "DEADLINE_HAS_EXPIRED_ERROR": "API 활용 기간이 만료되었습니다. 공공데이터포털에서 연장 신청을 해주세요.",
+                        "UNREGISTERED_IP_ERROR": "등록되지 않은 IP입니다. 공공데이터포털에서 IP 설정을 확인해주세요.",
+                    }
+                    guide = error_guide.get(err_code, f"에러코드: {err_code}")
+                    raise ApiError(f"API 인증 오류: {err_msg}\n{guide}")
 
                 data = resp.json()
 
@@ -78,6 +106,8 @@ class NaraApiClient:
                 body = response.get("body", {})
                 return body
 
+            except ApiError:
+                raise
             except requests.exceptions.RequestException as e:
                 logger.warning("요청 실패 (시도 %d/%d): %s", attempt, self.max_retries, e)
                 if attempt < self.max_retries:
@@ -86,6 +116,8 @@ class NaraApiClient:
                     time.sleep(wait)
                 else:
                     raise ApiError(f"API 요청 실패 (최대 재시도 초과): {e}") from e
+            except ValueError as e:
+                raise ApiError(f"API 응답 파싱 실패: {resp.text[:500]}") from e
 
     def _fetch_all_pages(self, endpoint: str, params: dict) -> list:
         """모든 페이지의 데이터를 수집합니다."""

@@ -10,6 +10,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 from dotenv import load_dotenv
 
@@ -201,6 +202,14 @@ if run_btn:
 
         except ApiError as e:
             st.error(f"API 오류: {e}")
+            st.markdown("""
+            **해결 방법:**
+            1. [공공데이터포털](https://www.data.go.kr)에서 아래 서비스 활용신청 확인
+               - 조달청_나라장터 낙찰정보서비스
+               - 조달청_나라장터 입찰공고정보서비스
+            2. API 키는 **Encoding** 키를 사용하세요
+            3. 활용신청 후 승인까지 1~2시간 소요될 수 있습니다
+            """)
             st.stop()
         except Exception as e:
             st.error(f"오류 발생: {e}")
@@ -249,16 +258,49 @@ if run_btn:
                 )
                 st.bar_chart(dist_df.set_index("구간"))
 
-            # 투찰률 추이 (시간순)
+            # 투찰률 추이 (시간순) - 낙찰 건은 점으로 표시
             if analysis.bid_records:
                 records_sorted = sorted(analysis.bid_records, key=lambda r: r.bid_date)
                 trend_df = pd.DataFrame({
                     "개찰일": [r.bid_date[:8] for r in records_sorted],
                     "투찰률(%)": [r.bid_rate for r in records_sorted],
                     "공고명": [r.bid_ntce_nm for r in records_sorted],
+                    "낙찰": ["낙찰" if r.is_winner else "미낙찰" for r in records_sorted],
                 })
-                st.markdown("**투찰률 추이**")
-                st.line_chart(trend_df.set_index("개찰일")["투찰률(%)"])
+                trend_df["순번"] = range(len(trend_df))
+
+                st.markdown("**투찰률 추이**  · 🔴 낙찰")
+
+                # 라인 차트 (전체 추이)
+                line = alt.Chart(trend_df).mark_line(
+                    color="#4A90D9", strokeWidth=2
+                ).encode(
+                    x=alt.X("순번:Q", title="투찰 순서", axis=alt.Axis(labelAngle=0)),
+                    y=alt.Y("투찰률(%):Q", scale=alt.Scale(zero=False), title="투찰률 (%)"),
+                    tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
+                )
+
+                # 전체 점 (작은 점)
+                points_all = alt.Chart(trend_df).mark_circle(
+                    size=40, color="#4A90D9"
+                ).encode(
+                    x="순번:Q",
+                    y="투찰률(%):Q",
+                    tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
+                )
+
+                # 낙찰 점 (큰 빨간 점)
+                win_df = trend_df[trend_df["낙찰"] == "낙찰"]
+                points_win = alt.Chart(win_df).mark_circle(
+                    size=200, color="#FF4B4B"
+                ).encode(
+                    x="순번:Q",
+                    y="투찰률(%):Q",
+                    tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
+                )
+
+                chart = (line + points_all + points_win).properties(height=350)
+                st.altair_chart(chart, use_container_width=True)
 
     # 2) 업체간 비교 (복수 업체)
     if len(analyses) > 1:
