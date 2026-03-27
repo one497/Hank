@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from nara_analyzer.api_client import NaraApiClient, ApiError
 from nara_analyzer.analyzer import ServiceBidAnalyzer
+from nara_analyzer.cache import save_cache, load_cache, clear_cache, get_cache_info
 
 load_dotenv()
 
@@ -70,8 +71,29 @@ with st.sidebar:
     st.divider()
 
     use_demo = st.checkbox("데모 모드 (샘플 데이터)", value=False)
+    use_cache = st.checkbox("캐시 사용 (저장된 결과 재활용)", value=True)
 
     run_btn = st.button("🔍 분석 시작", use_container_width=True, type="primary")
+
+    st.divider()
+
+    # 캐시 관리
+    with st.expander("캐시 관리"):
+        cache_items = get_cache_info()
+        if cache_items:
+            st.caption(f"저장된 캐시: {len(cache_items)}건")
+            for item in cache_items:
+                st.text(
+                    f"  {item['사업자등록번호']} | "
+                    f"{item['조회기간']} | "
+                    f"{item['건수']}건 | {item['저장일']}"
+                )
+            if st.button("🗑️ 캐시 초기화", use_container_width=True):
+                cleared = clear_cache()
+                st.success(f"{cleared}개 캐시 삭제 완료")
+                st.rerun()
+        else:
+            st.caption("저장된 캐시가 없습니다.")
 
 
 # ──────────────────────────────────────────────
@@ -194,11 +216,42 @@ if run_btn:
             else:
                 client = NaraApiClient(api_key=api_key)
                 analyzer = ServiceBidAnalyzer(api_client=client)
-                analyses = analyzer.fetch_and_analyze(
-                    bsns_reg_nos=reg_nos,
-                    start_date=start_str,
-                    end_date=end_str,
-                )
+
+                # 캐시 확인 후 API 호출
+                all_raw_data = []
+                cached_count = 0
+                api_count = 0
+
+                for rno in reg_nos:
+                    cached = None
+                    if use_cache:
+                        cached = load_cache(rno, start_str, end_str)
+
+                    if cached is not None:
+                        all_raw_data.extend(cached)
+                        cached_count += 1
+                    else:
+                        # API 호출
+                        results = client.get_service_bid_results(
+                            start_date=start_str,
+                            end_date=end_str,
+                            bsns_reg_no=rno,
+                        )
+                        all_raw_data.extend(results)
+                        api_count += 1
+                        # 결과 캐시 저장
+                        save_cache(rno, start_str, end_str, results)
+
+                analyses = analyzer.analyze_from_data(all_raw_data, reg_nos)
+
+                # 캐시 사용 현황 표시
+                if cached_count > 0:
+                    st.success(
+                        f"캐시에서 {cached_count}개 업체 로드 완료"
+                        + (f", API에서 {api_count}개 업체 신규 조회" if api_count > 0 else "")
+                    )
+                elif api_count > 0:
+                    st.info(f"API에서 {api_count}개 업체 조회 완료 (결과 캐시 저장됨)")
 
         except ApiError as e:
             st.error(f"API 오류: {e}")
