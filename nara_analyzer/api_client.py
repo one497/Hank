@@ -94,16 +94,36 @@ class NaraApiClient:
                 data = resp.json()
 
                 # 공공데이터포털 응답 구조 파싱
-                response = data.get("response", {})
+                # 구조 1: {"response": {"header": {...}, "body": {...}}}
+                # 구조 2: {"header": {...}, "body": {...}}
+                # 구조 3: {"resultCode": ..., "resultMsg": ..., "items": [...]}
+                response = data.get("response", data)
                 header = response.get("header", {})
-                result_code = header.get("resultCode", "")
+                result_code = str(header.get("resultCode", header.get("code", "")))
 
-                if result_code != "00":
-                    result_msg = header.get("resultMsg", "Unknown error")
+                if result_code and result_code != "00" and result_code != "0":
+                    result_msg = header.get("resultMsg", header.get("message", "Unknown error"))
                     logger.error("API 오류: [%s] %s", result_code, result_msg)
-                    raise ApiError(f"API 오류: [{result_code}] {result_msg}")
+                    logger.error("전체 응답: %s", str(data)[:1000])
+                    raise ApiError(
+                        f"API 오류: [{result_code}] {result_msg}\n"
+                        f"전체 응답: {str(data)[:500]}"
+                    )
 
                 body = response.get("body", {})
+                if not body and "items" in response:
+                    body = response
+                if not body and "items" in data:
+                    body = data
+
+                # body가 비어있으면 전체 응답 구조를 에러로 표시
+                if not body:
+                    logger.error("응답 파싱 실패. 전체 응답: %s", str(data)[:1000])
+                    raise ApiError(
+                        f"API 응답 구조를 파싱할 수 없습니다.\n"
+                        f"전체 응답: {str(data)[:500]}"
+                    )
+
                 return body
 
             except ApiError:
