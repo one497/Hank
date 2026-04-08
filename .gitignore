@@ -7,4 +7,5 @@ venv/
 output/
 *.csv
 *.xlsx
+*.pptx
 cache/
