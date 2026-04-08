@@ -72,6 +72,11 @@ with st.sidebar:
 
     use_demo = st.checkbox("데모 모드 (샘플 데이터)", value=False)
     use_cache = st.checkbox("캐시 사용 (저장된 결과 재활용)", value=True)
+    slide_mode = st.checkbox(
+        "🎞️ 슬라이드 모드",
+        value=False,
+        help="분석 결과를 슬라이드쇼로 한 페이지씩 보여줍니다.",
+    )
 
     run_btn = st.button("🔍 분석 시작", use_container_width=True, type="primary")
 
@@ -179,6 +184,279 @@ def format_krw(value: float) -> str:
 
 
 # ──────────────────────────────────────────────
+# 렌더링 함수 - 업체별 슬라이드/카드
+# ──────────────────────────────────────────────
+def render_company_analysis(analysis, show_container: bool = True):
+    """단일 업체의 분석 결과를 렌더링합니다."""
+    context = st.container(border=True) if show_container else st.container()
+    with context:
+        st.subheader(f"{analysis.comp_nm} ({format_reg_no(analysis.bsns_reg_no)})")
+
+        if analysis.total_bids == 0:
+            st.warning("해당 기간 내 투찰 데이터가 없습니다.")
+            return
+
+        # KPI 메트릭
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("총 투찰건수", f"{analysis.total_bids:,}건")
+        col2.metric("낙찰건수", f"{analysis.total_wins:,}건")
+        col3.metric("낙찰률", f"{analysis.win_rate:.1f}%")
+        col4.metric("평균 투찰률", f"{analysis.avg_bid_rate:.2f}%")
+        col5.metric("평균 순위", f"{analysis.avg_rank:.1f}위")
+
+        col_a, col_b = st.columns(2)
+        col_a.metric("총 투찰금액", format_krw(analysis.total_bid_amt))
+        col_b.metric("총 낙찰금액", format_krw(analysis.total_win_amt))
+
+        # 투찰률 통계
+        st.markdown("**투찰률 상세**")
+        stat_col1, stat_col2, stat_col3 = st.columns(3)
+        stat_col1.metric("최저 투찰률", f"{analysis.min_bid_rate:.2f}%")
+        stat_col2.metric("최고 투찰률", f"{analysis.max_bid_rate:.2f}%")
+        stat_col3.metric("표준편차", f"{analysis.std_bid_rate:.4f}")
+
+        # 투찰률 분포 차트
+        if analysis.bid_rate_distribution:
+            st.markdown("**투찰률 구간별 분포**")
+            dist_df = pd.DataFrame(
+                list(analysis.bid_rate_distribution.items()),
+                columns=["구간", "건수"],
+            )
+            st.bar_chart(dist_df.set_index("구간"))
+
+        # 투찰률 추이
+        if analysis.bid_records:
+            records_sorted = sorted(analysis.bid_records, key=lambda r: r.bid_date)
+            trend_df = pd.DataFrame({
+                "개찰일": [r.bid_date[:8] for r in records_sorted],
+                "투찰률(%)": [r.bid_rate for r in records_sorted],
+                "공고명": [r.bid_ntce_nm for r in records_sorted],
+                "낙찰": ["낙찰" if r.is_winner else "미낙찰" for r in records_sorted],
+            })
+            trend_df["순번"] = range(len(trend_df))
+
+            st.markdown("**투찰률 추이**  · 🔴 낙찰")
+
+            line = alt.Chart(trend_df).mark_line(
+                color="#4A90D9", strokeWidth=2
+            ).encode(
+                x=alt.X("순번:Q", title="투찰 순서", axis=alt.Axis(labelAngle=0)),
+                y=alt.Y("투찰률(%):Q", scale=alt.Scale(zero=False), title="투찰률 (%)"),
+                tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
+            )
+            points_all = alt.Chart(trend_df).mark_circle(
+                size=40, color="#4A90D9"
+            ).encode(
+                x="순번:Q",
+                y="투찰률(%):Q",
+                tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
+            )
+            win_df = trend_df[trend_df["낙찰"] == "낙찰"]
+            points_win = alt.Chart(win_df).mark_circle(
+                size=200, color="#FF4B4B"
+            ).encode(
+                x="순번:Q",
+                y="투찰률(%):Q",
+                tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
+            )
+
+            chart = (line + points_all + points_win).properties(height=350)
+            st.altair_chart(chart, use_container_width=True)
+
+
+def render_comparison(analyses: dict):
+    """업체간 비교 섹션 렌더링."""
+    compare_data = []
+    for analysis in analyses.values():
+        compare_data.append({
+            "업체명": analysis.comp_nm,
+            "사업자등록번호": format_reg_no(analysis.bsns_reg_no),
+            "투찰건수": analysis.total_bids,
+            "낙찰건수": analysis.total_wins,
+            "낙찰률(%)": analysis.win_rate,
+            "평균투찰률(%)": analysis.avg_bid_rate,
+            "평균순위": analysis.avg_rank,
+            "총투찰금액": analysis.total_bid_amt,
+        })
+    compare_df = pd.DataFrame(compare_data)
+    st.dataframe(compare_df, use_container_width=True, hide_index=True)
+
+    chart_col1, chart_col2 = st.columns(2)
+    with chart_col1:
+        st.markdown("**평균 투찰률 비교**")
+        chart_df = compare_df[["업체명", "평균투찰률(%)"]].set_index("업체명")
+        st.bar_chart(chart_df)
+    with chart_col2:
+        st.markdown("**낙찰률 비교**")
+        chart_df2 = compare_df[["업체명", "낙찰률(%)"]].set_index("업체명")
+        st.bar_chart(chart_df2)
+
+
+def render_detail_table(analyzer, analyses: dict):
+    """상세 데이터 테이블 및 다운로드 버튼 렌더링."""
+    detail_df = analyzer.export_to_dataframe(analyses)
+
+    if detail_df.empty:
+        st.info("표시할 투찰 기록이 없습니다.")
+        return
+
+    st.dataframe(
+        detail_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "투찰금액": st.column_config.NumberColumn(format="₩%d"),
+            "예정가격": st.column_config.NumberColumn(format="₩%d"),
+            "기초금액": st.column_config.NumberColumn(format="₩%d"),
+            "투찰률(%)": st.column_config.NumberColumn(format="%.2f%%"),
+        },
+    )
+
+    st.markdown("### 데이터 다운로드")
+    dl_col1, dl_col2 = st.columns(2)
+
+    with dl_col1:
+        summary_df = analyzer.export_summary_dataframe(analyses)
+        csv_summary = summary_df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            label="📥 요약 결과 다운로드 (CSV)",
+            data=csv_summary,
+            file_name="투찰률분석_요약.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+    with dl_col2:
+        csv_detail = detail_df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            label="📥 상세 기록 다운로드 (CSV)",
+            data=csv_detail,
+            file_name="투찰률분석_상세.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+
+def build_slides(analyses: dict, analyzer) -> list[dict]:
+    """슬라이드 목록을 생성합니다.
+
+    각 슬라이드는 {"title": str, "render": callable} 형태입니다.
+    """
+    slides: list[dict] = []
+
+    # 표지 슬라이드
+    def render_cover():
+        st.markdown(
+            "<div style='text-align:center; padding:40px 0;'>"
+            "<h1>📊 나라장터 용역 투찰률 분석</h1>"
+            "<h3 style='color:#888;'>프레젠테이션 보고서</h3>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        total_bids = sum(a.total_bids for a in analyses.values())
+        total_wins = sum(a.total_wins for a in analyses.values())
+        overall_rate = (total_wins / total_bids * 100) if total_bids else 0.0
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("분석 업체 수", f"{len(analyses):,}개")
+        c2.metric("총 투찰 건수", f"{total_bids:,}건")
+        c3.metric("전체 낙찰률", f"{overall_rate:.1f}%")
+
+        st.markdown("#### 분석 대상 업체")
+        for a in analyses.values():
+            st.markdown(
+                f"- **{a.comp_nm}** ({format_reg_no(a.bsns_reg_no)}) "
+                f"— 투찰 {a.total_bids:,}건 / 낙찰 {a.total_wins:,}건"
+            )
+
+    slides.append({"title": "표지", "render": render_cover})
+
+    # 업체별 슬라이드
+    for analysis in analyses.values():
+        def _render(a=analysis):
+            render_company_analysis(a, show_container=False)
+        slides.append({"title": analysis.comp_nm, "render": _render})
+
+    # 비교 슬라이드 (복수 업체일 때만)
+    if len(analyses) > 1:
+        def render_compare():
+            st.markdown("## 업체간 비교")
+            render_comparison(analyses)
+        slides.append({"title": "업체간 비교", "render": render_compare})
+
+    # 상세 테이블 슬라이드
+    def render_details():
+        st.markdown("## 상세 투찰 기록")
+        render_detail_table(analyzer, analyses)
+    slides.append({"title": "상세 기록 · 다운로드", "render": render_details})
+
+    return slides
+
+
+def render_slide_view(analyses: dict, analyzer):
+    """슬라이드 프레젠테이션 뷰를 렌더링합니다."""
+    slides = build_slides(analyses, analyzer)
+    total = len(slides)
+
+    # 슬라이드 인덱스 초기화 / 범위 보정
+    if "slide_index" not in st.session_state:
+        st.session_state.slide_index = 0
+    st.session_state.slide_index = max(
+        0, min(st.session_state.slide_index, total - 1)
+    )
+    idx = st.session_state.slide_index
+
+    # 진행 표시
+    st.progress((idx + 1) / total, text=f"슬라이드 {idx + 1} / {total} — {slides[idx]['title']}")
+
+    # 슬라이드 본문
+    with st.container(border=True):
+        slides[idx]["render"]()
+
+    # 네비게이션
+    nav_prev, nav_center, nav_next = st.columns([1, 2, 1])
+    with nav_prev:
+        if st.button("⬅️ 이전", disabled=(idx == 0), use_container_width=True, key="slide_prev"):
+            st.session_state.slide_index = max(0, idx - 1)
+            st.rerun()
+    with nav_center:
+        # 슬라이드 바로가기 선택
+        titles = [f"{i + 1}. {s['title']}" for i, s in enumerate(slides)]
+        selected = st.selectbox(
+            "바로가기",
+            options=list(range(total)),
+            index=idx,
+            format_func=lambda i: titles[i],
+            key="slide_jump",
+            label_visibility="collapsed",
+        )
+        if selected != idx:
+            st.session_state.slide_index = selected
+            st.rerun()
+    with nav_next:
+        if st.button("다음 ➡️", disabled=(idx == total - 1), use_container_width=True, key="slide_next"):
+            st.session_state.slide_index = min(total - 1, idx + 1)
+            st.rerun()
+
+
+def render_standard_view(analyses: dict, analyzer):
+    """기본(스크롤) 뷰를 렌더링합니다."""
+    # 1) 업체별 요약 카드
+    st.header("업체별 분석 결과")
+    for analysis in analyses.values():
+        render_company_analysis(analysis)
+
+    # 2) 업체간 비교 (복수 업체)
+    if len(analyses) > 1:
+        st.header("업체간 비교")
+        render_comparison(analyses)
+
+    # 3) 상세 데이터 테이블 및 다운로드
+    st.header("상세 투찰 기록")
+    render_detail_table(analyzer, analyses)
+
+
+# ──────────────────────────────────────────────
 # 분석 실행
 # ──────────────────────────────────────────────
 if run_btn:
@@ -268,166 +546,23 @@ if run_btn:
             st.error(f"오류 발생: {e}")
             st.stop()
 
-    # ──────────────────────────────────────────
-    # 결과 표시
-    # ──────────────────────────────────────────
+    # 결과를 session_state에 저장 (슬라이드 탐색 시 재분석 방지)
+    st.session_state.analyses = analyses
+    st.session_state.analyzer = analyzer
+    st.session_state.slide_index = 0
 
-    # 1) 업체별 요약 카드
-    st.header("업체별 분석 결과")
 
-    for reg_no, analysis in analyses.items():
-        with st.container(border=True):
-            st.subheader(f"{analysis.comp_nm} ({format_reg_no(reg_no)})")
+# ──────────────────────────────────────────────
+# 결과 표시 (session_state 기반)
+# ──────────────────────────────────────────────
+if "analyses" in st.session_state and st.session_state.analyses:
+    analyses = st.session_state.analyses
+    analyzer = st.session_state.analyzer
 
-            if analysis.total_bids == 0:
-                st.warning("해당 기간 내 투찰 데이터가 없습니다.")
-                continue
-
-            # KPI 메트릭
-            col1, col2, col3, col4, col5 = st.columns(5)
-            col1.metric("총 투찰건수", f"{analysis.total_bids:,}건")
-            col2.metric("낙찰건수", f"{analysis.total_wins:,}건")
-            col3.metric("낙찰률", f"{analysis.win_rate:.1f}%")
-            col4.metric("평균 투찰률", f"{analysis.avg_bid_rate:.2f}%")
-            col5.metric("평균 순위", f"{analysis.avg_rank:.1f}위")
-
-            col_a, col_b = st.columns(2)
-            col_a.metric("총 투찰금액", format_krw(analysis.total_bid_amt))
-            col_b.metric("총 낙찰금액", format_krw(analysis.total_win_amt))
-
-            # 투찰률 통계
-            st.markdown("**투찰률 상세**")
-            stat_col1, stat_col2, stat_col3 = st.columns(3)
-            stat_col1.metric("최저 투찰률", f"{analysis.min_bid_rate:.2f}%")
-            stat_col2.metric("최고 투찰률", f"{analysis.max_bid_rate:.2f}%")
-            stat_col3.metric("표준편차", f"{analysis.std_bid_rate:.4f}")
-
-            # 투찰률 분포 차트
-            if analysis.bid_rate_distribution:
-                st.markdown("**투찰률 구간별 분포**")
-                dist_df = pd.DataFrame(
-                    list(analysis.bid_rate_distribution.items()),
-                    columns=["구간", "건수"],
-                )
-                st.bar_chart(dist_df.set_index("구간"))
-
-            # 투찰률 추이 (시간순) - 낙찰 건은 점으로 표시
-            if analysis.bid_records:
-                records_sorted = sorted(analysis.bid_records, key=lambda r: r.bid_date)
-                trend_df = pd.DataFrame({
-                    "개찰일": [r.bid_date[:8] for r in records_sorted],
-                    "투찰률(%)": [r.bid_rate for r in records_sorted],
-                    "공고명": [r.bid_ntce_nm for r in records_sorted],
-                    "낙찰": ["낙찰" if r.is_winner else "미낙찰" for r in records_sorted],
-                })
-                trend_df["순번"] = range(len(trend_df))
-
-                st.markdown("**투찰률 추이**  · 🔴 낙찰")
-
-                # 라인 차트 (전체 추이)
-                line = alt.Chart(trend_df).mark_line(
-                    color="#4A90D9", strokeWidth=2
-                ).encode(
-                    x=alt.X("순번:Q", title="투찰 순서", axis=alt.Axis(labelAngle=0)),
-                    y=alt.Y("투찰률(%):Q", scale=alt.Scale(zero=False), title="투찰률 (%)"),
-                    tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
-                )
-
-                # 전체 점 (작은 점)
-                points_all = alt.Chart(trend_df).mark_circle(
-                    size=40, color="#4A90D9"
-                ).encode(
-                    x="순번:Q",
-                    y="투찰률(%):Q",
-                    tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
-                )
-
-                # 낙찰 점 (큰 빨간 점)
-                win_df = trend_df[trend_df["낙찰"] == "낙찰"]
-                points_win = alt.Chart(win_df).mark_circle(
-                    size=200, color="#FF4B4B"
-                ).encode(
-                    x="순번:Q",
-                    y="투찰률(%):Q",
-                    tooltip=["개찰일", "공고명", "투찰률(%)", "낙찰"],
-                )
-
-                chart = (line + points_all + points_win).properties(height=350)
-                st.altair_chart(chart, use_container_width=True)
-
-    # 2) 업체간 비교 (복수 업체)
-    if len(analyses) > 1:
-        st.header("업체간 비교")
-
-        compare_data = []
-        for analysis in analyses.values():
-            compare_data.append({
-                "업체명": analysis.comp_nm,
-                "사업자등록번호": format_reg_no(analysis.bsns_reg_no),
-                "투찰건수": analysis.total_bids,
-                "낙찰건수": analysis.total_wins,
-                "낙찰률(%)": analysis.win_rate,
-                "평균투찰률(%)": analysis.avg_bid_rate,
-                "평균순위": analysis.avg_rank,
-                "총투찰금액": analysis.total_bid_amt,
-            })
-        compare_df = pd.DataFrame(compare_data)
-        st.dataframe(compare_df, use_container_width=True, hide_index=True)
-
-        # 비교 차트
-        chart_col1, chart_col2 = st.columns(2)
-        with chart_col1:
-            st.markdown("**평균 투찰률 비교**")
-            chart_df = compare_df[["업체명", "평균투찰률(%)"]].set_index("업체명")
-            st.bar_chart(chart_df)
-        with chart_col2:
-            st.markdown("**낙찰률 비교**")
-            chart_df2 = compare_df[["업체명", "낙찰률(%)"]].set_index("업체명")
-            st.bar_chart(chart_df2)
-
-    # 3) 상세 데이터 테이블
-    st.header("상세 투찰 기록")
-    detail_df = analyzer.export_to_dataframe(analyses)
-
-    if not detail_df.empty:
-        st.dataframe(
-            detail_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "투찰금액": st.column_config.NumberColumn(format="₩%d"),
-                "예정가격": st.column_config.NumberColumn(format="₩%d"),
-                "기초금액": st.column_config.NumberColumn(format="₩%d"),
-                "투찰률(%)": st.column_config.NumberColumn(format="%.2f%%"),
-            },
-        )
-
-        # 4) CSV 다운로드
-        st.header("데이터 다운로드")
-        dl_col1, dl_col2 = st.columns(2)
-
-        with dl_col1:
-            summary_df = analyzer.export_summary_dataframe(analyses)
-            csv_summary = summary_df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                label="📥 요약 결과 다운로드 (CSV)",
-                data=csv_summary,
-                file_name="투찰률분석_요약.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-
-        with dl_col2:
-            csv_detail = detail_df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                label="📥 상세 기록 다운로드 (CSV)",
-                data=csv_detail,
-                file_name="투찰률분석_상세.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
+    if slide_mode:
+        render_slide_view(analyses, analyzer)
     else:
-        st.info("표시할 투찰 기록이 없습니다.")
+        render_standard_view(analyses, analyzer)
 
 else:
     # 초기 안내 화면
@@ -440,6 +575,8 @@ else:
     4. **분석 시작** 버튼 클릭
 
     > API 키가 없으면 **데모 모드**를 체크하여 샘플 데이터로 테스트할 수 있습니다.
+    >
+    > 🎞️ **슬라이드 모드**를 켜면 분석 결과를 한 페이지씩 넘기며 프레젠테이션처럼 볼 수 있습니다.
 
     ---
 
