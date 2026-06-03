@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>커뮤니티 정치 성향 분석</title>
+<style>
+  :root{
+    --bg:#0f1116; --panel:#181b23; --panel-2:#20242e; --border:#2a2f3a;
+    --text:#e6e8ee; --muted:#9aa3b2;
+    --left:#3b82f6; --right:#ef4444; --center:#a78bfa; --accent:#38bdf8;
+    --prog:#3b82f6; --cons:#ef4444; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #1a1f2b 0%, var(--bg) 60%);
+    color:var(--text); line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 18px 64px;}
+  header h1{font-size:26px;margin:0 0 6px;letter-spacing:-.5px;}
+  header p{color:var(--muted);margin:0;font-size:14px;}
+  .disclaimer{
+    margin:18px 0 22px;padding:12px 14px;
+    background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);
+    border-radius:10px;font-size:13px;color:#cfe9fb;
+  }
+  .disclaimer b{color:#eaf6ff;}
+  .tabs{display:flex;gap:8px;margin-bottom:18px;}
+  .tab{
+    flex:1;padding:11px 14px;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;color:var(--muted);cursor:pointer;font-size:15px;font-weight:600;text-align:center;transition:all .15s;
+  }
+  .tab:hover{color:var(--text);border-color:#3a4151;}
+  .tab.active{color:#fff;background:linear-gradient(180deg,#2a3242,#20242e);border-color:var(--accent);box-shadow:0 0 0 1px rgba(56,189,248,.3) inset;}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .2s;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+  button.primary{background:linear-gradient(180deg,#38bdf8,#0ea5e9);color:#04222f;border:none;border-radius:10px;padding:11px 22px;font-size:15px;font-weight:800;cursor:pointer;}
+  button.ghost{background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:10px;padding:11px 18px;font-size:14px;cursor:pointer;}
+  .hint{color:var(--muted);font-size:12px;}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid #3a4151;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-3px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .legend{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin:6px 2px 14px;}
+  .spectrum-axis{height:8px;border-radius:99px;background:linear-gradient(90deg,var(--left),var(--center) 50%,var(--right));margin:6px 0 4px;}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+  .card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .card-head .name{font-size:16px;font-weight:700;}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;}
+  .src{font-size:11px;color:#6b7382;border:1px solid var(--border);border-radius:99px;padding:1px 8px;}
+  .src.live{color:#86efac;border-color:rgba(134,239,172,.4);}
+  .src.sample{color:#fbbf24;border-color:rgba(251,191,36,.4);}
+
+  .meter{position:relative;height:26px;margin-top:10px;}
+  .meter .track{position:absolute;top:11px;left:0;right:0;height:5px;border-radius:99px;background:linear-gradient(90deg,rgba(59,130,246,.35),rgba(167,139,250,.35) 50%,rgba(239,68,68,.35));}
+  .meter .mid{position:absolute;top:6px;left:50%;width:1px;height:15px;background:#4b5366;transform:translateX(-.5px);}
+  .meter .dot{position:absolute;top:7px;width:14px;height:14px;border-radius:99px;background:#fff;border:3px solid var(--accent);transform:translateX(-7px);box-shadow:0 2px 8px rgba(0,0,0,.5);}
+  .scale{display:flex;justify-content:space-between;font-size:11px;color:#6b7382;margin-top:2px;}
+
+  .faction-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  .fchip{font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:var(--panel-2);}
+  .fchip.prog{color:#bcd4ff;border-color:rgba(59,130,246,.4);}
+  .fchip.cons{color:#ffc9c9;border-color:rgba(239,68,68,.4);}
+  .fchip .net{opacity:.7;margin-left:4px;}
+  .dominant{font-weight:800;outline:2px solid currentColor;}
+
+  .diverge{margin-top:10px;font-size:13px;color:#fde68a;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:8px;padding:8px 11px;}
+  .posts{margin-top:10px;}
+  .posts summary{cursor:pointer;color:var(--muted);font-size:12px;}
+  .posts li{font-size:12px;color:#aab2c0;}
+
+  textarea{width:100%;min-height:170px;resize:vertical;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:14px;font-size:14px;font-family:inherit;line-height:1.6;}
+  textarea:focus{outline:none;border-color:var(--accent);}
+  .gauge-label{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);}
+  .gauge{position:relative;height:34px;margin:8px 0 4px;}
+  .gauge .track2{position:absolute;top:14px;left:0;right:0;height:6px;border-radius:99px;background:linear-gradient(90deg,var(--left),var(--center) 50%,var(--right));}
+  .gauge .mid2{position:absolute;top:8px;left:50%;width:1px;height:18px;background:#5a6275;}
+  .gauge .needle{position:absolute;top:4px;width:4px;height:26px;border-radius:99px;background:#fff;transform:translateX(-2px);transition:left .4s cubic-bezier(.2,.8,.2,1);box-shadow:0 0 10px rgba(255,255,255,.5);}
+  .verdict{font-size:20px;font-weight:800;margin:12px 0 4px;}
+  .verdict small{font-size:13px;font-weight:600;color:var(--muted);}
+  .result{display:none;margin-top:16px;}
+  .result.show{display:block;}
+  footer{color:#5b6271;font-size:12px;margin-top:30px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🧭 커뮤니티 정치 성향 분석</h1>
+    <p>최근 인기글을 수집해 <b>좌우 축</b>과 <b>정파(계파) 축</b>으로 성향을 추정합니다</p>
+  </header>
+
+  <div class="disclaimer">
+    ⚠️ <b>참고용 도구입니다.</b> 결과는 인기글 텍스트의 키워드 빈도에 기반한 <b>대략적 추정</b>이며,
+    같은 사이트라도 게시판·시기·이슈에 따라 편차가 큽니다. 특정 개인의 성향을 단정하지 않습니다.
+    <span id="srcNote"></span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="live">📊 커뮤니티 분석</div>
+    <div class="tab" data-tab="text">✍️ 텍스트 분석</div>
+  </div>
+
+  <!-- 커뮤니티 분석 -->
+  <section class="panel active" id="live">
+    <div class="spectrum-axis"></div>
+    <div class="legend"><span>← 진보 / 좌</span><span>중도</span><span>보수 / 우 →</span></div>
+    <div class="toolbar">
+      <button class="primary" id="refresh">최근 인기글 분석</button>
+      <span class="hint" id="liveHint">버튼을 누르면 각 커뮤니티의 최근 인기글을 수집해 분석합니다.</span>
+    </div>
+    <div id="cards"></div>
+  </section>
+
+  <!-- 텍스트 분석 -->
+  <section class="panel" id="text">
+    <p style="color:var(--muted);font-size:14px;margin-top:0;">게시글·댓글을 붙여넣으면 좌우 성향과 정파 성향을 추정합니다.</p>
+    <textarea id="input" placeholder="여기에 분석할 텍스트를 붙여넣으세요..."></textarea>
+    <div class="toolbar" style="margin-top:12px;">
+      <button class="primary" id="run">분석하기</button>
+      <button class="ghost" id="sample">예시 채우기</button>
+      <button class="ghost" id="clear">지우기</button>
+    </div>
+    <div class="result" id="result">
+      <div class="gauge-label"><span>진보 / 좌</span><span>중도</span><span>보수 / 우</span></div>
+      <div class="gauge"><div class="track2"></div><div class="mid2"></div><div class="needle" id="needle" style="left:50%;"></div></div>
+      <div class="verdict" id="verdict"></div>
+      <div id="summary" style="color:var(--muted);font-size:13px;"></div>
+      <div id="textFactions" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+  <footer>재미와 참고를 위한 도구입니다 · 정치 성향은 다차원적이며 단일 축으로 환원될 수 없습니다.</footer>
+</div>
+
+<script>
+const FCAMP = {prog:"prog", cons:"cons"};
+const colCamp = c => c==="prog" ? "var(--prog)" : "var(--cons)";
+
+function tab(name){
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x.dataset.tab===name));
+  document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active", x.id===name));
+}
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>tab(t.dataset.tab)));
+
+function lrTagColor(score,total){
+  if(total===0) return "var(--muted)";
+  return score<0 ? "var(--left)" : score>0 ? "var(--right)" : "var(--center)";
+}
+
+function factionChips(factions){
+  if(!factions.list.length) return `<div class="hint" style="margin-top:8px;">정파 키워드가 검출되지 않았습니다.</div>`;
+  const domId = factions.dominant ? factions.dominant.id : null;
+  const chips = factions.list.map(f=>{
+    const isDom = f.id===domId;
+    return `<span class="fchip ${f.camp} ${isDom?"dominant":""}" style="${isDom?`color:${colCamp(f.camp)}`:""}">
+      ${f.name}<span class="net">${f.net>0?"+":""}${f.net}</span></span>`;
+  }).join("");
+  return `<div class="faction-row">${chips}</div>`;
+}
+
+function divergeBox(d){
+  if(!d) return "";
+  return `<div class="diverge">⚡ <b>분기점</b> — ${d.note}</div>`;
+}
+
+function renderCommunityCard(c){
+  const lr = c.leftright, fa = c.factions;
+  const pct = (lr.score+100)/2;
+  const col = lrTagColor(lr.score, lr.total);
+  const dom = fa.dominant;
+  const domBadge = dom
+    ? `<span class="tag" style="background:${colCamp(dom.camp)}22;color:${colCamp(dom.camp)};">우세: ${dom.name}</span>`
+    : "";
+  const posts = c.posts.map(p=>`<li>${escapeHtml(p)}</li>`).join("");
+  return `<div class="card">
+    <div class="card-head">
+      <span class="name">${escapeHtml(c.name)}</span>
+      <div class="badges">
+        <span class="tag" style="background:${col}22;color:${col};">${lr.label} · ${lr.score>0?"+":""}${lr.score}</span>
+        ${domBadge}
+        <span class="src ${c.source}">${c.source==="live"?"실시간":"샘플"}</span>
+      </div>
+    </div>
+    <div class="meter"><div class="track"></div><div class="mid"></div>
+      <div class="dot" style="left:${pct}%;border-color:${col};"></div></div>
+    <div class="scale"><span>진보</span><span>중도</span><span>보수</span></div>
+    ${factionChips(fa)}
+    ${divergeBox(fa.divergence)}
+    <details class="posts"><summary>분석한 인기글 ${c.post_count}건 보기</summary><ul>${posts}</ul></details>
+  </div>`;
+}
+
+function escapeHtml(s){return (s||"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+async function loadCommunities(){
+  const btn = document.getElementById("refresh");
+  const hint = document.getElementById("liveHint");
+  btn.disabled = true;
+  hint.innerHTML = `<span class="spinner"></span> 수집·분석 중...`;
+  try{
+    const res = await fetch("/api/analyze-all");
+    const data = await res.json();
+    document.getElementById("cards").innerHTML = data.map(renderCommunityCard).join("");
+    const anyLive = data.some(d=>d.source==="live");
+    hint.textContent = anyLive ? "분석 완료." :
+      "분석 완료 · 현재 환경에서 사이트 접속이 막혀 샘플 데이터로 분석했습니다.";
+    document.getElementById("srcNote").innerHTML = anyLive ? "" :
+      ` <b>현재 샘플 데이터로 동작 중</b>입니다(사이트 접속 차단 시 자동 폴백).`;
+  }catch(e){
+    hint.textContent = "분석 실패: " + e.message;
+  }finally{
+    btn.disabled = false;
+  }
+}
+document.getElementById("refresh").addEventListener("click", loadCommunities);
+
+// 텍스트 분석
+function renderTextFactions(fa){
+  return `${factionChips(fa)}${divergeBox(fa.divergence)}`;
+}
+async function analyzeText(text){
+  const res = await fetch("/api/analyze-text",{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({text})
+  });
+  const r = await res.json();
+  document.getElementById("result").classList.add("show");
+  const lr = r.leftright;
+  document.getElementById("needle").style.left = ((lr.score+100)/2)+"%";
+  const col = lrTagColor(lr.score, lr.total);
+  document.getElementById("verdict").innerHTML =
+    `<span style="color:${col}">${lr.label}</span> <small>(점수 ${lr.score>0?"+":""}${lr.score})</small>`;
+  document.getElementById("summary").textContent =
+    `진보 키워드 ${lr.left}회 / 보수 키워드 ${lr.right}회`;
+  document.getElementById("textFactions").innerHTML = renderTextFactions(r.factions);
+}
+document.getElementById("run").addEventListener("click",()=>{
+  const t = document.getElementById("input").value.trim();
+  if(!t){alert("분석할 텍스트를 입력하세요.");return;}
+  analyzeText(t);
+});
+document.getElementById("clear").addEventListener("click",()=>{
+  document.getElementById("input").value="";
+  document.getElementById("result").classList.remove("show");
+});
+document.getElementById("sample").addEventListener("click",()=>{
+  document.getElementById("input").value =
+    "검찰개혁과 적폐청산은 계속돼야 한다. 친명 개딸들과 함께 이재명 정부를 지키자. "+
+    "다만 비명·수박 세력과의 갈등은 안타깝다. 토착왜구 친일 세력 청산이 우선이다.";
+  analyzeText(document.getElementById("input").value);
+});
+</script>
+</body>
+</html>
