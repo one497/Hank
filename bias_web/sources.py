@@ -30,6 +30,7 @@ COMMUNITIES = [
     {"id": "theqoo",     "name": "더쿠",              "rss": None},
     {"id": "ppomppu",    "name": "뽐뿌",              "rss": None},
     {"id": "dcbest",     "name": "디시인사이드(실베)", "rss": None},
+    {"id": "bukyuge",    "name": "북유게(디시 북미유학 갤)", "rss": None},
 ]
 
 COMMUNITY_BY_ID = {c["id"]: c for c in COMMUNITIES}
