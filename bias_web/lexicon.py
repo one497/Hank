@@ -4,20 +4,24 @@
 
 1) 좌우 축 (leftright): -100(진보/좌) ~ 0(중도) ~ +100(보수/우)
 2) 정파 축 (factions): 진보·보수 진영 안에서 어느 계파(친문/친명/친윤/친한 등)에
-   우호적인지. 각 계파는 지지(pro) 표현과 적대(anti) 표현을 가지며
-   순지지도 = pro - anti 로 계산한다.
+   우호적인지. 각 계파는 지지(pro)·적대(anti) 표현을 가지며 순지지도 = pro - anti.
+
+정파는 트리(부모-자식) 구조다. `factions.json`에 노드를 추가하면 코드 수정 없이
+새 갈래가 반영되며, 자식의 매칭은 부모로 자동 집계(roll-up)된다.
+(예: '뉴이재명'은 '친명·개딸'의 하위 갈래 → 친명 집계에 더해진다)
 
 모든 매칭은 단순 부분문자열 빈도 기반이므로 맥락을 고려하지 못하는 '대략적 추정'이다.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # ──────────────────────────────────────────────
 # 좌우 축 키워드
-# 각 진영에서 자주 쓰거나 그 진영을 옹호/대변하는 표현 위주
 # ──────────────────────────────────────────────
 LEFT_KW: List[str] = [
     "적폐", "적폐청산", "토착왜구", "친일파", "친일", "수구", "검찰개혁", "언론개혁",
@@ -34,117 +38,73 @@ RIGHT_KW: List[str] = [
     "운동권", "친중", "이적단체", "방탄국회",
 ]
 
-# ──────────────────────────────────────────────
-# 정파(계파) 축
-#   camp: "prog"(진보) | "cons"(보수)
-#   pro : 지지/소속 정체성을 드러내는 표현
-#   anti: 해당 계파를 비하/공격할 때 쓰이는 표현 (상대 진영/계파가 사용)
-#   opposes: 같은 진영 안에서 대립하는 계파 id (분기점 판단용)
-# ──────────────────────────────────────────────
-FACTIONS: Dict[str, dict] = {
-    # ── 진보 진영 ──────────────────────────────
-    "chinmun": {
-        "name": "친문 (문재인계)", "camp": "prog",
-        "pro": [
-            "친문", "문재인", "문통", "문심", "문파", "이니", "달님", "재인이형",
-            "노무현정신", "깨시민", "양정철", "탁현민", "임종석", "김경수",
-            "노짱", "부엉이바위", "친노", "친문계", "더문",
-        ],
-        "anti": ["대깨문", "문빠", "달창", "문죄인", "문재앙", "문크예거"],
-        "opposes": ["chinmyung"],
-    },
-    "chinmyung": {
-        "name": "친명·개딸 (이재명계)", "camp": "prog",
-        "pro": [
-            "친명", "이재명", "개딸", "명심", "뉴이재명", "잼잼", "이묘", "명룡",
-            "재명이형", "정청래", "최강욱", "김어준", "양문석", "장경태", "친명계",
-            "명팸", "이대명", "민주당원", "명나라",
-        ],
-        "anti": ["명팔이", "찢", "찢재명", "찢죄명", "대깨명", "혜경궁", "혜경궁김씨", "흉노"],
-        "opposes": ["chinmun", "binmyung"],
-    },
-    "binmyung": {
-        "name": "비명·반명", "camp": "prog",
-        "pro": [
-            "비명", "반명", "이낙연", "김부겸", "박지현", "원칙과상식", "이상민",
-            "조응천", "이원욱", "김종민", "설훈", "홍영표", "새로운미래", "비명계",
-            "낙연", "친낙",
-        ],
-        "anti": ["수박", "수박색출", "수박깨기", "수박파"],
-        "opposes": ["chinmyung"],
-    },
-    "chocook": {
-        "name": "친조국 (조국혁신당)", "camp": "prog",
-        "pro": [
-            "조국혁신당", "조국혁신", "조국", "조작가", "황운하", "차규근",
-            "신장식", "조국당", "조국대표",
-        ],
-        "anti": ["조로남불", "조적조"],
-        "opposes": [],
-    },
-    # ── 보수 진영 ──────────────────────────────
-    "chinyoon": {
-        "name": "친윤 (윤석열계)", "camp": "cons",
-        "pro": [
-            "친윤", "윤석열", "윤핵관", "윤심", "윤어게인", "권성동", "이철규",
-            "장제원", "추경호", "윤상현", "친윤계", "윤짱", "석열이형",
-        ],
-        "anti": ["굥", "윤바보", "기미가요", "윤두창", "술석열", "쩍벌", "윤석열차", "도이치"],
-        "opposes": ["chinhan"],
-    },
-    "chinhan": {
-        "name": "친한 (한동훈계)", "camp": "cons",
-        "pro": [
-            "친한", "한동훈", "한동훈팬", "여의도사투리", "댕동훈", "장동혁",
-            "김종혁", "박정훈", "친한계", "한판", "동훈이형", "한동프로",
-        ],
-        "anti": ["한심당", "배신자한동훈", "깐죽", "한칼"],
-        "opposes": ["chinyoon"],
-    },
-    "chinpark": {
-        "name": "친박 (박근혜계)", "camp": "cons",
-        "pro": [
-            "친박", "박근혜", "태극기", "탄핵무효", "박사모", "황교안", "조원진",
-            "우리공화당", "진박", "근혜님", "탄기국",
-        ],
-        "anti": ["닭근혜", "박그네", "순실", "길라임"],
-        "opposes": [],
-    },
-    "junseok": {
-        "name": "이준석계 (개혁신당)", "camp": "cons",
-        "pro": [
-            "이준석", "개혁신당", "유승민", "천아용인", "허은아", "천하람",
-            "양향자", "이준석계", "준스기", "준표형은아님",
-        ],
-        "anti": ["개쩌리", "이준상"],
-        "opposes": ["chinyoon"],
-    },
-    "ahncs": {
-        "name": "안철수계 (중도·보수)", "camp": "cons",
-        "pro": ["안철수", "안랩", "철수형", "새정치", "안철수계"],
-        "anti": ["간철수", "안찰스", "MB아바타"],
-        "opposes": [],
-    },
-}
-
 CAMP_LABEL = {"prog": "진보", "cons": "보수"}
+
+# ──────────────────────────────────────────────
+# 정파 트리 로드 (factions.json)
+# ──────────────────────────────────────────────
+_FACTIONS_PATH = os.path.join(os.path.dirname(__file__), "factions.json")
+
+
+def _load_factions() -> Dict[str, dict]:
+    with open(_FACTIONS_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    factions: Dict[str, dict] = {}
+    for node in data["factions"]:
+        factions[node["id"]] = {
+            "name": node["name"],
+            "camp": node["camp"],
+            "parent": node.get("parent"),
+            "pro": node.get("pro", []),
+            "anti": node.get("anti", []),
+            "opposes": node.get("opposes", []),
+        }
+    return factions
+
+
+FACTIONS: Dict[str, dict] = _load_factions()
+
+# 부모 -> 자식 id 목록
+CHILDREN: Dict[str, List[str]] = {}
+for _fid, _f in FACTIONS.items():
+    if _f["parent"]:
+        CHILDREN.setdefault(_f["parent"], []).append(_fid)
 
 
 def _count(keywords: List[str], text: str) -> Dict[str, int]:
-    """키워드별 출현 횟수를 센다.
-
-    긴 키워드부터 매칭하고 매칭된 구간을 소거하여, 짧은 키워드가
-    긴 키워드 안에서 중복 집계되는 것을 막는다.
-    (예: '조국혁신당'을 먼저 세면 그 안의 '조국'은 다시 세지 않는다)
-    """
+    """단일 키워드 목록에 대해 출현 횟수를 센다(긴 키워드 우선, 중복 구간 소거)."""
     found: Dict[str, int] = {}
     work = text
     for kw in sorted(keywords, key=len, reverse=True):
-        matches = re.findall(re.escape(kw), work)
-        if matches:
-            found[kw] = len(matches)
-            work = re.sub(re.escape(kw), "￿", work)  # 매칭 구간 소거
+        if re.search(re.escape(kw), work):
+            found[kw] = len(re.findall(re.escape(kw), work))
+            work = re.sub(re.escape(kw), "￿", work)
     return found
+
+
+def _scan_factions(text: str) -> Dict[str, Dict[str, Dict[str, int]]]:
+    """모든 정파 키워드를 전역적으로 한 번에 스캔한다.
+
+    긴 키워드부터 매칭해 구간을 소거하므로, 자식의 긴 표현('뉴이재명')이
+    부모의 짧은 표현('이재명')에 중복 집계되지 않는다.
+    """
+    entries = []  # (keyword, faction_id, polarity)
+    for fid, f in FACTIONS.items():
+        for kw in f["pro"]:
+            entries.append((kw, fid, "pro"))
+        for kw in f["anti"]:
+            entries.append((kw, fid, "anti"))
+    entries.sort(key=lambda e: len(e[0]), reverse=True)
+
+    res: Dict[str, Dict[str, Dict[str, int]]] = {
+        fid: {"pro": {}, "anti": {}} for fid in FACTIONS
+    }
+    work = text
+    for kw, fid, pol in entries:
+        if re.search(re.escape(kw), work):
+            res[fid][pol][kw] = len(re.findall(re.escape(kw), work))
+            work = re.sub(re.escape(kw), "￿", work)
+    return res
 
 
 def _leftright_label(score: int, total: int) -> str:
@@ -159,6 +119,14 @@ def _leftright_label(score: int, total: int) -> str:
     return "중도/혼재"
 
 
+def _rolled_net(fid: str, own_net: Dict[str, int]) -> int:
+    """자신 + 모든 하위 갈래의 순지지도를 합산(roll-up)."""
+    total = own_net.get(fid, 0)
+    for child in CHILDREN.get(fid, []):
+        total += _rolled_net(child, own_net)
+    return total
+
+
 def analyze_text(text: str) -> dict:
     """텍스트의 좌우·정파 성향을 분석한다."""
     text = text or ""
@@ -171,75 +139,91 @@ def analyze_text(text: str) -> dict:
     lr_total = l_sum + r_sum
     lr_score = 0 if lr_total == 0 else round((r_sum - l_sum) / lr_total * 100)
 
-    # 2) 정파 축
-    factions = []
+    # 2) 정파 축 (전역 스캔 후 노드별 집계)
+    scan = _scan_factions(text)
+    own_net: Dict[str, int] = {}
+    nodes: Dict[str, dict] = {}
     for fid, f in FACTIONS.items():
-        pro = _count(f["pro"], text)
-        anti = _count(f["anti"], text)
-        pro_sum = sum(pro.values())
-        anti_sum = sum(anti.values())
+        pro = scan[fid]["pro"]
+        anti = scan[fid]["anti"]
+        pro_sum, anti_sum = sum(pro.values()), sum(anti.values())
         net = pro_sum - anti_sum
-        if pro_sum or anti_sum:
-            factions.append({
-                "id": fid,
-                "name": f["name"],
-                "camp": f["camp"],
-                "pro": pro_sum,
-                "anti": anti_sum,
-                "net": net,
-                "matched": {**{k: v for k, v in pro.items()},
-                            **{f"{k}(비하)": -v for k, v in anti.items()}},
-            })
+        own_net[fid] = net
+        nodes[fid] = {
+            "id": fid, "name": f["name"], "camp": f["camp"], "parent": f["parent"],
+            "pro": pro_sum, "anti": anti_sum, "net": net,
+            "matched": {**{k: v for k, v in pro.items()},
+                        **{f"{k}(비하)": -v for k, v in anti.items()}},
+        }
 
-    factions.sort(key=lambda x: x["net"], reverse=True)
+    # roll-up 순지지도
+    for fid, node in nodes.items():
+        node["rolled"] = _rolled_net(fid, own_net)
+        node["parent_name"] = FACTIONS[node["parent"]]["name"] if node["parent"] else None
 
-    # 전체 좌우 성향과 일치하는 진영만 정파 판단에 사용한다.
-    # (예: 보수 커뮤니티가 '이재명'을 비판하며 언급한 것을 친명 지지로 오인하지 않도록)
+    # 좌우 성향과 일치하는 진영만 정파 판단에 사용
     camp = None
     if lr_score <= -10:
         camp = "prog"
     elif lr_score >= 10:
         camp = "cons"
-    relevant = [f for f in factions if camp is None or f["camp"] == camp]
 
-    # 진영 내 우세 계파 + 분기점(같은 진영 내 대립 계파가 동시에 강할 때)
-    dominant = next((f for f in relevant if f["net"] > 0), None)
-    divergence = _detect_divergence(relevant)
+    def in_camp(n):
+        return camp is None or n["camp"] == camp
+
+    # 키워드가 검출된 노드(진영 일치)만 노출
+    detected = [n for n in nodes.values()
+                if in_camp(n) and (n["pro"] or n["anti"])]
+    detected.sort(key=lambda n: (n["parent"] is not None, -n["net"]))
+
+    # 우세 가문(top-level) = roll-up 순지지도 최대, 그 안의 활성 하위 갈래
+    families = [n for n in nodes.values()
+                if n["parent"] is None and in_camp(n) and n["rolled"] > 0]
+    families.sort(key=lambda n: n["rolled"], reverse=True)
+    dominant = families[0] if families else None
+    subbranch = None
+    if dominant:
+        subs = [nodes[c] for c in CHILDREN.get(dominant["id"], [])
+                if nodes[c]["net"] > 0]
+        subs.sort(key=lambda n: n["net"], reverse=True)
+        subbranch = subs[0] if subs else None
+
+    divergence = _detect_divergence(nodes, in_camp)
 
     return {
         "leftright": {
-            "score": lr_score,
-            "left": l_sum,
-            "right": r_sum,
-            "total": lr_total,
+            "score": lr_score, "left": l_sum, "right": r_sum, "total": lr_total,
             "label": _leftright_label(lr_score, lr_total),
             "matched": {"left": left, "right": right},
         },
         "factions": {
-            "list": relevant,
-            "all": factions,
+            "list": detected,
             "dominant": dominant,
+            "subbranch": subbranch,
             "divergence": divergence,
         },
     }
 
 
-def _detect_divergence(factions: List[dict]) -> dict | None:
-    """같은 진영 안에서 대립 계파가 동시에 두드러지면 '분기점'으로 표시."""
-    by_id = {f["id"]: f for f in factions if f["net"] > 0}
-    for fid, f in by_id.items():
+def _detect_divergence(nodes: Dict[str, dict], in_camp) -> Optional[dict]:
+    """같은 진영 안에서 대립 정파가 동시에 두드러지면 '분기점'으로 표시.
+
+    상위 가문 간 대립은 roll-up 순지지도로 판단한다.
+    """
+    positive = {fid: n for fid, n in nodes.items()
+                if in_camp(n) and n["parent"] is None and n["rolled"] > 0}
+    for fid, n in positive.items():
         for opp_id in FACTIONS[fid].get("opposes", []):
-            opp = by_id.get(opp_id)
+            opp = positive.get(opp_id)
             if not opp:
                 continue
-            weak, strong = sorted([f["net"], opp["net"]])
-            # 약한 쪽이 강한 쪽의 50% 이상이면 의미 있는 갈라짐으로 판단
+            weak, strong = sorted([n["rolled"], opp["rolled"]])
             if strong > 0 and weak >= strong * 0.5:
-                pair = sorted([f, opp], key=lambda x: x["net"], reverse=True)
+                pair = sorted([n, opp], key=lambda x: x["rolled"], reverse=True)
                 return {
-                    "camp": CAMP_LABEL[f["camp"]],
+                    "camp": CAMP_LABEL[n["camp"]],
                     "factions": [pair[0]["name"], pair[1]["name"]],
-                    "note": f"{CAMP_LABEL[f['camp']]} 진영 안에서 "
+                    "note": f"{CAMP_LABEL[n['camp']]} 진영 안에서 "
                             f"{pair[0]['name']} vs {pair[1]['name']} 로 갈라지는 분기점",
                 }
     return None

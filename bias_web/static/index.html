@@ -68,6 +68,7 @@
   .fchip.prog{color:#bcd4ff;border-color:rgba(59,130,246,.4);}
   .fchip.cons{color:#ffc9c9;border-color:rgba(239,68,68,.4);}
   .fchip .net{opacity:.7;margin-left:4px;}
+  .fchip .fork{opacity:.55;margin-right:3px;}
   .dominant{font-weight:800;outline:2px solid currentColor;}
 
   .diverge{margin-top:10px;font-size:13px;color:#fde68a;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:8px;padding:8px 11px;}
@@ -157,12 +158,19 @@ function lrTagColor(score,total){
 function factionChips(factions){
   if(!factions.list.length) return `<div class="hint" style="margin-top:8px;">정파 키워드가 검출되지 않았습니다.</div>`;
   const domId = factions.dominant ? factions.dominant.id : null;
+  const subId = factions.subbranch ? factions.subbranch.id : null;
   const chips = factions.list.map(f=>{
-    const isDom = f.id===domId;
-    return `<span class="fchip ${f.camp} ${isDom?"dominant":""}" style="${isDom?`color:${colCamp(f.camp)}`:""}">
-      ${f.name}<span class="net">${f.net>0?"+":""}${f.net}</span></span>`;
+    const isDom = f.id===domId || f.id===subId;
+    const child = f.parent ? `<span class="fork">└</span>` : "";
+    return `<span class="fchip ${f.camp} ${isDom?"dominant":""}" style="${isDom?`color:${colCamp(f.camp)}`:""}" title="${f.parent_name?escapeHtml(f.parent_name)+' 의 하위 갈래':''}">
+      ${child}${escapeHtml(f.name)}<span class="net">${f.net>0?"+":""}${f.net}</span></span>`;
   }).join("");
   return `<div class="faction-row">${chips}</div>`;
+}
+
+function dominantText(fa){
+  if(!fa.dominant) return null;
+  return fa.subbranch ? `${fa.dominant.name} › ${fa.subbranch.name}` : fa.dominant.name;
 }
 
 function divergeBox(d){
@@ -176,7 +184,7 @@ function renderCommunityCard(c){
   const col = lrTagColor(lr.score, lr.total);
   const dom = fa.dominant;
   const domBadge = dom
-    ? `<span class="tag" style="background:${colCamp(dom.camp)}22;color:${colCamp(dom.camp)};">우세: ${dom.name}</span>`
+    ? `<span class="tag" style="background:${colCamp(dom.camp)}22;color:${colCamp(dom.camp)};">우세: ${dominantText(fa)}</span>`
     : "";
   const posts = c.posts.map(p=>`<li>${escapeHtml(p)}</li>`).join("");
   return `<div class="card">
@@ -253,6 +261,7 @@ document.getElementById("clear").addEventListener("click",()=>{
 document.getElementById("sample").addEventListener("click",()=>{
   document.getElementById("input").value =
     "검찰개혁과 적폐청산은 계속돼야 한다. 친명 개딸들과 함께 이재명 정부를 지키자. "+
+    "요즘은 뉴이재명·실용이재명 노선도 지지받는 분위기. "+
     "다만 비명·수박 세력과의 갈등은 안타깝다. 토착왜구 친일 세력 청산이 우선이다.";
   analyzeText(document.getElementById("input").value);
 });
