@@ -80,6 +80,11 @@ def parse_args():
         action="store_true",
         help="상세 로그 출력",
     )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="데모 모드: 샘플 데이터로 분석 (API 호출 없음)",
+    )
 
     return parser.parse_args()
 
@@ -88,6 +93,10 @@ def main():
     args = parse_args()
     setup_logging(args.verbose)
     logger = logging.getLogger(__name__)
+
+    # 데모 모드
+    if args.demo:
+        return run_demo(args)
 
     # API 키 확인
     api_key = args.api_key or os.getenv("NARA_API_KEY")
@@ -165,6 +174,116 @@ def main():
         logger.exception("예상치 못한 오류 발생")
         print(f"\n오류: {e}")
         sys.exit(1)
+
+
+def run_demo(args):
+    """데모 모드: 샘플 데이터로 분석 결과를 시연합니다."""
+    from .analyzer import ServiceBidAnalyzer
+
+    reg_nos = [r.strip().replace("-", "") for r in args.reg_no.split(",")]
+
+    # 샘플 개찰결과 데이터 (나라장터 API 응답 형식)
+    sample_data = _generate_sample_data(reg_nos)
+
+    analyzer = ServiceBidAnalyzer(api_client=None)
+    analyses = analyzer.analyze_from_data(sample_data, reg_nos)
+
+    print(f"\n[데모 모드] 나라장터 용역 투찰률 분석")
+    print(f"분석 대상: {len(reg_nos)}개 업체")
+    print(f"조회 기간: {args.start} ~ {args.end}")
+    print(f"{'─' * 50}\n")
+
+    report = analyzer.generate_report(analyses)
+    print(report)
+
+    if args.output:
+        os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+        summary_df = analyzer.export_summary_dataframe(analyses)
+        summary_df.to_csv(args.output, index=False, encoding="utf-8-sig")
+        print(f"요약 결과 저장: {args.output}")
+
+        if args.export_detail:
+            detail_df = analyzer.export_to_dataframe(analyses)
+            base, ext = os.path.splitext(args.output)
+            detail_path = f"{base}_detail{ext}"
+            detail_df.to_csv(detail_path, index=False, encoding="utf-8-sig")
+            print(f"상세 결과 저장: {detail_path}")
+
+    print("\n[데모] 분석 완료.")
+
+
+def _generate_sample_data(reg_nos: list[str]) -> list[dict]:
+    """사업자등록번호별 샘플 개찰결과 데이터를 생성합니다."""
+    import random
+    random.seed(42)
+
+    company_names = {
+        reg_nos[0]: "(주)한국정보기술",
+    }
+    if len(reg_nos) > 1:
+        company_names[reg_nos[1]] = "(주)대한소프트"
+    if len(reg_nos) > 2:
+        company_names[reg_nos[2]] = "(주)서울시스템"
+
+    notice_names = [
+        "2025년 정보시스템 유지관리 용역",
+        "클라우드 전환 컨설팅 용역",
+        "빅데이터 분석 플랫폼 구축 용역",
+        "정보보안 관제 용역",
+        "전자정부 시스템 고도화 용역",
+        "AI 기반 민원 분석 시스템 개발",
+        "스마트시티 통합플랫폼 운영 용역",
+        "공공데이터 개방 시스템 구축",
+        "재해복구시스템 구축 용역",
+        "차세대 전산시스템 ISP 수립",
+        "네트워크 인프라 유지보수 용역",
+        "홈페이지 재구축 및 운영 용역",
+        "모바일 앱 개발 용역",
+        "통합 보안관제센터 운영",
+        "데이터센터 이전 용역",
+    ]
+
+    institutions = [
+        "조달청", "행정안전부", "과학기술정보통신부",
+        "서울특별시", "경기도청", "한국정보화진흥원",
+        "국민건강보험공단", "한국전력공사", "인천광역시",
+    ]
+
+    data = []
+    for reg_no in reg_nos:
+        comp_nm = company_names.get(reg_no, f"(주)테스트업체_{reg_no[-4:]}")
+        num_bids = random.randint(8, 20)
+
+        for i in range(num_bids):
+            base_price = random.randint(50_000_000, 2_000_000_000)
+            # 투찰률: 보통 85~100% 범위
+            bid_rate_pct = random.uniform(85.0, 99.5)
+            bid_amt = int(base_price * bid_rate_pct / 100)
+            rank = random.choices(
+                [1, 2, 3, 4, 5, 6, 7, 8],
+                weights=[15, 20, 18, 15, 12, 8, 7, 5],
+            )[0]
+            is_winner = rank == 1
+
+            month = random.randint(1, 12)
+            day = random.randint(1, 28)
+
+            data.append({
+                "bidNtceNo": f"2025{random.randint(1000, 9999):04d}{i+1:03d}",
+                "bidNtceNm": random.choice(notice_names),
+                "bidNtceOrd": "00",
+                "bsnsBzoperRegNo": reg_no,
+                "prcbdrBizNm": comp_nm,
+                "bidprcAmt": str(bid_amt),
+                "presmptPrce": str(base_price),
+                "bssamt": str(int(base_price * 1.05)),
+                "rnk": str(rank),
+                "sucsfbidYn": "Y" if is_winner else "N",
+                "opengDt": f"2025{month:02d}{day:02d}1000",
+                "dminsttNm": random.choice(institutions),
+            })
+
+    return data
 
 
 if __name__ == "__main__":
