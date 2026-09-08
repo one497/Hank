@@ -25,5 +25,6 @@ VOLUME ["/data"]
 
 CMD ["python", "-m", "terrain2dxf", "watch", "/data/입력", "/data/출력", \
      "--archive", "/data/처리완료", "--interval", "60", \
-     "--ground-filter", "--flatten-z", "--scale", "1/1000", \
+     "--ground-filter", "--flatten-z", "--spot-heights", "--sheet-split", \
+     "--scale", "1/1000", "--paper", "A1", "--sheet-prefix", "C-01-02-", \
      "--log", "/data/출력/자동처리.log"]

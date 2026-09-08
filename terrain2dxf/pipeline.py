@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import json
 import logging
@@ -10,7 +10,9 @@ import time
 
 from . import contours as contour_mod
 from . import dem as dem_mod
+from . import points as points_mod
 from . import preview as preview_mod
+from . import sheets as sheets_mod
 from .config import Settings
 from .dxf import write as write_dxf
 
@@ -28,6 +30,8 @@ class Result:
     report: Path | None = None
     n_contours: int = 0
     n_major: int = 0
+    n_spots: int = 0
+    n_sheets: int = 0
     elapsed: float = 0.0
     warnings: list[str] = field(default_factory=list)
 
@@ -35,8 +39,12 @@ class Result:
         parts = [
             f"{self.source.name} → {self.dxf.name}",
             f"등고선 {self.n_contours}개 (계곡선 {self.n_major}개)",
-            f"{self.elapsed:.1f}초",
         ]
+        if self.n_spots:
+            parts.append(f"표고점 {self.n_spots}개")
+        if self.n_sheets:
+            parts.append(f"도곽 {self.n_sheets}매")
+        parts.append(f"{self.elapsed:.1f}초")
         return " / ".join(parts)
 
 
@@ -55,6 +63,11 @@ def run(
 
     raw = dem_mod.load(dem_path)
     log.info("DEM 읽음: %s", raw.describe().replace("\n", " "))
+
+    # 무인 실행에서는 현장마다 표제란을 손으로 채울 수 없으므로,
+    # 현장명이 비어 있으면 파일 이름을 현장명으로 삼는다.
+    if not settings.project_name:
+        settings = replace(settings, project_name=dem_path.stem)
 
     if raw.crs_epsg is None:
         warnings.append(
@@ -75,13 +88,50 @@ def run(
             "크지 않은지 확인하세요."
         )
 
+    # 표고점 — 등고선만으로는 도면이 되지 않는다.
+    spots = []
+    if settings.spot_heights:
+        spacing = settings.spot_spacing or None
+        spots = points_mod.grid(prepared, settings, spacing)
+    if settings.spot_extremes:
+        spots = spots + points_mod.extremes(prepared, settings.spot_extremes)
+
+    # 도곽 — 한 현장을 축척·용지에 맞춰 여러 매로 나눈다.
+    sheet_layout = None
+    if settings.sheet_split:
+        sheet_layout = sheets_mod.plan(
+            prepared.bounds,
+            settings.scale,
+            settings.paper,
+            overlap=settings.sheet_overlap,
+            prefix=settings.sheet_prefix,
+        )
+        log.info("도곽: %s", sheet_layout.describe())
+
+    overlays = list(settings.overlay_dxf)
+    for path in overlays:
+        if not Path(path).exists():
+            warnings.append(f"중첩할 도면을 찾지 못해 건너뜁니다: {path}")
+    overlays = [p for p in overlays if Path(p).exists()]
+
     stem = dem_path.stem
-    dxf_path = write_dxf(lines, prepared, settings, out_dir / f"{stem}_등고선.dxf")
+    if sheet_layout is not None and settings.sheet_prefix:
+        # 기존 명명 규칙(C-01-02-001~008.현황측량도)에 맞춘다.
+        label = sheets_mod.sheet_range_label(sheet_layout, settings.sheet_prefix)
+        base = f"{label}.{settings.drawing_title}"
+    else:
+        base = f"{stem}_등고선"
+
+    dxf_path = write_dxf(
+        lines, prepared, settings, out_dir / f"{base}.dxf",
+        spots=spots, sheet_layout=sheet_layout, overlays=overlays,
+    )
 
     flat_path = None
     if settings.flatten_z:
         flat_path = write_dxf(
-            lines, prepared, settings, out_dir / f"{stem}_등고선_z0.dxf", flatten=True
+            lines, prepared, settings, out_dir / f"{base}_z0.dxf", flatten=True,
+            spots=spots, sheet_layout=sheet_layout, overlays=overlays,
         )
 
     png_path = None
@@ -90,8 +140,10 @@ def run(
             prepared,
             lines,
             out_dir / f"{stem}_미리보기.png",
-            title=f"{stem} — {settings.scale}",
+            title=f"{settings.project_name} — {settings.scale} {settings.drawing_title}",
             settings=settings,
+            spots=spots if len(spots) <= 400 else [],
+            sheet_layout=sheet_layout,
         )
 
     result = Result(
@@ -101,10 +153,14 @@ def run(
         preview=png_path,
         n_contours=len(lines),
         n_major=sum(1 for c in lines if c.is_major),
+        n_spots=len(spots),
+        n_sheets=len(sheet_layout.sheets) if sheet_layout else 0,
         elapsed=time.monotonic() - started,
         warnings=warnings,
     )
-    result.report = _write_report(result, raw, prepared, settings, out_dir / f"{stem}_리포트.json")
+    result.report = _write_report(
+        result, raw, prepared, settings, out_dir / f"{stem}_리포트.json"
+    )
     return result
 
 
@@ -132,6 +188,8 @@ def _write_report(result: Result, raw, prepared, settings: Settings, path: Path)
         "평활sigma": settings.smooth_sigma,
         "등고선수": result.n_contours,
         "계곡선수": result.n_major,
+        "표고점수": result.n_spots,
+        "도곽매수": result.n_sheets,
         "소요초": round(result.elapsed, 2),
         "경고": result.warnings,
         "산출물": {

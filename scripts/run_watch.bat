@@ -10,6 +10,13 @@ set "IN_DIR=%HERE%\입력"
 set "OUT_DIR=%HERE%\출력"
 set "ARCHIVE_DIR=%HERE%\처리완료"
 
+REM 도면 규약. 회사 양식에 맞게 고치세요.
+set "SCALE=1/1000"
+set "PAPER=A1"
+set "SHEET_PREFIX=C-01-02-"
+set "DRAWING_TITLE=현황측량도"
+set "SURVEYOR="
+
 set "PYTHONPATH=%HERE%;%PYTHONPATH%"
 set "PYTHONIOENCODING=utf-8"
 
@@ -18,7 +25,13 @@ python -m terrain2dxf watch "%IN_DIR%" "%OUT_DIR%" ^
     --once ^
     --ground-filter ^
     --flatten-z ^
-    --scale 1/1000 ^
+    --spot-heights ^
+    --sheet-split ^
+    --scale "%SCALE%" ^
+    --paper "%PAPER%" ^
+    --sheet-prefix "%SHEET_PREFIX%" ^
+    --title "%DRAWING_TITLE%" ^
+    --surveyor "%SURVEYOR%" ^
     --log "%OUT_DIR%\자동처리.log"
 
 if errorlevel 1 (

@@ -51,6 +51,16 @@ class LayerScheme:
     major: LayerSpec = LayerSpec("등고선-계곡선", 3, 30)
     label: LayerSpec = LayerSpec("등고선-표고", 7, 13)
     border: LayerSpec = LayerSpec("도곽", 1, 50)
+    spot: LayerSpec = LayerSpec("표고점", 5, 13)
+    spot_text: LayerSpec = LayerSpec("표고점-문자", 7, 13)
+    titleblock: LayerSpec = LayerSpec("표제란", 7, 35)
+    overlay: LayerSpec = LayerSpec("중첩-지적", 2, 18)
+
+    def all_specs(self) -> tuple[LayerSpec, ...]:
+        return (
+            self.minor, self.major, self.label, self.border,
+            self.spot, self.spot_text, self.titleblock, self.overlay,
+        )
 
 
 @dataclass
@@ -69,6 +79,26 @@ class Settings:
     # 등고선
     min_points: int = 4              # 이보다 짧은 등고선 조각은 버림
     min_length: float = 2.0          # 이보다 짧은(m) 등고선 조각은 버림
+
+    # 표고점
+    spot_heights: bool = False       # 격자 표고점을 찍을지
+    spot_spacing: float = 0.0        # 0이면 축척에 맞는 기본 간격을 쓴다
+    spot_coords: bool = False        # 표고와 함께 E/N 좌표도 적을지
+    spot_extremes: int = 0           # 최고·최저 주요 지점을 몇 개씩 표시할지
+
+    # 도곽
+    sheet_split: bool = False        # 도곽을 나눠 레이아웃을 만들지
+    paper: str = "A1"                # A0~A3
+    sheet_overlap: float = 20.0      # 인접 도면이 겹치는 폭 (m)
+    sheet_prefix: str = ""           # 도면번호 접두사. 예: "C-01-02-"
+
+    # 중첩할 외부 도면 (지적선·구역계 등). DXF만 읽을 수 있다.
+    overlay_dxf: list[str] = field(default_factory=list)
+
+    # 표제란에 채울 내용
+    project_name: str = ""
+    drawing_title: str = "현황측량도"
+    surveyor: str = ""
 
     # 출력
     flatten_z: bool = False          # True면 Z=0으로 눕힌 평면도용 사본도 생성

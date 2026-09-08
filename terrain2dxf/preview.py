@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import font_manager
 from matplotlib.colors import LightSource
+from matplotlib.patches import Rectangle
 
 from .contours import Contour, label_positions
 from .dem import Dem
@@ -56,6 +57,8 @@ def render(
     title: str = "",
     dpi: int = 150,
     settings=None,
+    spots=None,
+    sheet_layout=None,
 ) -> Path:
     """음영기복 위에 등고선을 얹은 미리보기를 저장한다."""
     out_path = Path(out_path)
@@ -83,6 +86,31 @@ def render(
                 fontsize=5, rotation=angle, color="#5a2408",
                 ha="center", va="center", rotation_mode="anchor",
                 bbox=dict(boxstyle="square,pad=0.05", fc="white", ec="none", alpha=0.75),
+            )
+
+    # 표고점 — 많으면 그림이 뭉개지므로 호출하는 쪽에서 개수를 제한한다.
+    if spots:
+        ax.plot(
+            [p.e for p in spots], [p.n for p in spots],
+            linestyle="none", marker="+", markersize=3,
+            color="#1f4e79", markeredgewidth=0.6,
+        )
+
+    # 도곽 — 분할이 현장을 제대로 덮는지 한눈에 확인한다.
+    if sheet_layout is not None:
+        for sheet in sheet_layout.sheets:
+            ax.add_patch(
+                Rectangle(
+                    (sheet.e0, sheet.n0), sheet.width, sheet.height,
+                    fill=False, edgecolor="#c1121f", linewidth=1.0, linestyle="--",
+                )
+            )
+            ax.text(
+                sheet.e0 + sheet.width * 0.04,
+                sheet.n1 - sheet.height * 0.04,
+                sheet.name,
+                fontsize=8, color="#c1121f", ha="left", va="top",
+                bbox=dict(boxstyle="square,pad=0.15", fc="white", ec="none", alpha=0.8),
             )
 
     ax.set_xlabel("E (m)")

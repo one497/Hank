@@ -12,6 +12,13 @@ IN_DIR="${IN_DIR:-$HERE/입력}"
 OUT_DIR="${OUT_DIR:-$HERE/출력}"
 ARCHIVE_DIR="${ARCHIVE_DIR:-$HERE/처리완료}"
 
+# 도면 규약. 회사 양식에 맞게 고치세요.
+SCALE="${SCALE:-1/1000}"
+PAPER="${PAPER:-A1}"
+SHEET_PREFIX="${SHEET_PREFIX:-C-01-02-}"
+DRAWING_TITLE="${DRAWING_TITLE:-현황측량도}"
+SURVEYOR="${SURVEYOR:-}"
+
 export PYTHONPATH="$HERE:${PYTHONPATH:-}"
 export PYTHONIOENCODING=utf-8
 
@@ -21,5 +28,11 @@ exec python3 -m terrain2dxf watch "$IN_DIR" "$OUT_DIR" \
     --once \
     --ground-filter \
     --flatten-z \
-    --scale 1/1000 \
+    --spot-heights \
+    --sheet-split \
+    --scale "$SCALE" \
+    --paper "$PAPER" \
+    --sheet-prefix "$SHEET_PREFIX" \
+    --title "$DRAWING_TITLE" \
+    --surveyor "$SURVEYOR" \
     --log "$OUT_DIR/자동처리.log"

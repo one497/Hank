@@ -129,3 +129,181 @@ def test_settings_rejects_unknown_key(tmp_path):
     path.write_text('{"scale": "1/1000", "오타항목": 1}', encoding="utf-8")
     with pytest.raises(ValueError, match="모르는 항목"):
         Settings.load(path)
+
+
+# ── 표고점 ────────────────────────────────────────────────────────────────
+
+def test_spot_grid_aligns_to_spacing(sample_dem):
+    from terrain2dxf import points
+
+    d = dem_mod.load(sample_dem)
+    spots = points.grid(d, Settings(scale="1/1000"), spacing=25.0)
+    assert spots
+    # 간격의 배수에 맞아야 인접 도면끼리 표고점이 어긋나지 않는다.
+    assert all(abs(p.e % 25.0) < 1e-6 and abs(p.n % 25.0) < 1e-6 for p in spots)
+    # 모든 점이 DEM 범위 안에 있어야 한다.
+    e0, n0, e1, n1 = d.bounds
+    assert all(e0 <= p.e <= e1 and n0 <= p.n <= n1 for p in spots)
+
+
+def test_spot_grid_rejects_bad_spacing(sample_dem):
+    from terrain2dxf import points
+
+    d = dem_mod.load(sample_dem)
+    with pytest.raises(ValueError):
+        points.grid(d, Settings(), spacing=0.0)
+
+
+def test_extremes_are_spread_out(sample_dem):
+    from terrain2dxf import points
+
+    d = dem_mod.load(sample_dem)
+    picked = points.extremes(d, count=3, min_distance=40.0)
+    assert len(picked) > 0
+    for i, a in enumerate(picked):
+        for b in picked[i + 1:]:
+            assert np.hypot(a.e - b.e, a.n - b.n) >= 40.0
+
+
+# ── 도곽 ──────────────────────────────────────────────────────────────────
+
+def test_sheet_plan_covers_whole_extent():
+    from terrain2dxf import sheets
+
+    bounds = (229500.0, 506400.0, 231200.0, 508500.0)
+    layout = sheets.plan(bounds, "1/1000", "A1", overlap=20.0)
+
+    e0, n0, e1, n1 = bounds
+    assert max(s.e1 for s in layout.sheets) >= e1
+    assert max(s.n1 for s in layout.sheets) >= n1
+    assert min(s.e0 for s in layout.sheets) <= e0
+    assert min(s.n0 for s in layout.sheets) <= n0
+
+
+def test_sheet_cover_matches_scale():
+    """1/1000에서 도면 1 mm는 실제 1 m여야 한다."""
+    from terrain2dxf import sheets
+
+    layout = sheets.plan((0, 0, 100, 100), "1/1000", "A1")
+    assert layout.cover_e == pytest.approx(layout.draw_w_mm)
+    assert layout.cover_n == pytest.approx(layout.draw_h_mm)
+
+    layout2 = sheets.plan((0, 0, 100, 100), "1/500", "A1")
+    assert layout2.cover_n == pytest.approx(layout.draw_h_mm * 0.5)
+
+
+def test_sheet_naming_matches_existing_convention():
+    from terrain2dxf import sheets
+
+    layout = sheets.plan((229500.0, 506400.0, 231200.0, 508500.0), "1/1000", "A1")
+    label = sheets.sheet_range_label(layout, "C-01-02-")
+    # 기존 도면이 'C-01-02-001~008' 형식이다.
+    assert label.startswith("C-01-02-001~")
+    assert label.count("C-01-02-") == 1
+
+
+def test_sheet_plan_rejects_bad_input():
+    from terrain2dxf import sheets
+
+    with pytest.raises(ValueError):
+        sheets.plan((0, 0, 0, 0), "1/1000", "A1")
+    with pytest.raises(ValueError, match="모르는 용지"):
+        sheets.plan((0, 0, 100, 100), "1/1000", "A9")
+    with pytest.raises(ValueError, match="축척 표기"):
+        sheets.plan((0, 0, 100, 100), "1대1000", "A1")
+
+
+def test_pipeline_creates_one_layout_per_sheet(sample_dem, tmp_path):
+    settings = Settings(
+        scale="1/1000", paper="A3", sheet_split=True, sheet_prefix="C-01-02-",
+        spot_heights=True, make_preview=False, project_name="시험현장",
+    )
+    result = run(sample_dem, tmp_path, settings)
+    assert result.n_sheets > 0
+    assert result.n_spots > 0
+
+    doc = ezdxf.readfile(result.dxf)
+    names = [l.name for l in doc.layouts]
+    assert "Model" in names
+    # 도곽마다 레이아웃 하나. 기본 빈 레이아웃은 남지 않아야 한다.
+    sheet_names = [n for n in names if n != "Model"]
+    assert len(sheet_names) == result.n_sheets
+    assert all(n.startswith("C-01-02-") for n in sheet_names)
+
+
+def test_viewport_scale_is_exact(sample_dem, tmp_path):
+    """뷰포트가 실제로 지정한 축척으로 보이는지."""
+    settings = Settings(
+        scale="1/1000", paper="A3", sheet_split=True, make_preview=False
+    )
+    result = run(sample_dem, tmp_path, settings)
+    doc = ezdxf.readfile(result.dxf)
+
+    psp = doc.layouts.get([l.name for l in doc.layouts if l.name != "Model"][0])
+    viewports = [e for e in psp if e.dxftype() == "VIEWPORT"]
+    # 첫 번째는 ezdxf가 만드는 기본 뷰포트라 건너뛴다.
+    vp = viewports[-1]
+    # 모델 높이(m) / 도면 높이(mm) = 1000 이어야 1/1000 이다.
+    assert (vp.dxf.view_height * 1000.0) / vp.dxf.height == pytest.approx(1000.0)
+
+
+def test_titleblock_carries_project_fields(sample_dem, tmp_path):
+    settings = Settings(
+        scale="1/1000", paper="A3", sheet_split=True, make_preview=False,
+        project_name="원삼면 용수선", drawing_title="현황측량도", surveyor="한크건설",
+    )
+    result = run(sample_dem, tmp_path, settings)
+    doc = ezdxf.readfile(result.dxf)
+    psp = doc.layouts.get([l.name for l in doc.layouts if l.name != "Model"][0])
+    texts = {e.dxf.text for e in psp if e.dxftype() == "TEXT"}
+    assert "원삼면 용수선" in texts
+    assert "현황측량도" in texts
+    assert "한크건설" in texts
+    assert "1/1000" in texts
+
+
+# ── 중첩 ──────────────────────────────────────────────────────────────────
+
+def test_overlay_merges_into_named_layer(tmp_path):
+    from terrain2dxf import overlay
+
+    src = ezdxf.new("R2010", setup=True)
+    src.layers.add("지번", color=2)
+    src.modelspace().add_lwpolyline(
+        [(0, 0), (10, 0), (10, 10)], format="xy", dxfattribs={"layer": "지번"}
+    )
+    src_path = tmp_path / "지적.dxf"
+    src.saveas(src_path)
+
+    doc = ezdxf.new("R2010", setup=True)
+    added = overlay.merge(doc, src_path, layer="중첩-지적")
+    assert added == 1
+    layers = {e.dxf.layer for e in doc.modelspace()}
+    assert layers == {"중첩-지적"}
+
+
+def test_overlay_rejects_dwg(tmp_path):
+    from terrain2dxf import overlay
+
+    dwg = tmp_path / "지적도.dwg"
+    dwg.write_bytes(b"not really a dwg")
+    doc = ezdxf.new("R2010")
+    with pytest.raises(ValueError, match="ODA File Converter"):
+        overlay.merge(doc, dwg)
+
+
+def test_overlay_reports_missing_file(tmp_path):
+    from terrain2dxf import overlay
+
+    doc = ezdxf.new("R2010")
+    with pytest.raises(FileNotFoundError):
+        overlay.merge(doc, tmp_path / "없음.dxf")
+
+
+def test_pipeline_warns_on_missing_overlay(sample_dem, tmp_path):
+    settings = Settings(
+        scale="1/1000", make_preview=False,
+        overlay_dxf=[str(tmp_path / "없는지적도.dxf")],
+    )
+    result = run(sample_dem, tmp_path, settings)
+    assert any("찾지 못해" in w for w in result.warnings)

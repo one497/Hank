@@ -37,16 +37,31 @@ def _setup_logging(verbose: bool, logfile: str | None) -> None:
 
 def _settings_from_args(args) -> Settings:
     settings = Settings.load(args.config) if args.config else Settings()
-    for name in ("scale", "smooth_sigma"):
+
+    # 값이 주어진 옵션만 설정을 덮어쓴다. 나머지는 설정 파일 값을 지킨다.
+    for name in (
+        "scale", "smooth_sigma", "spot_spacing", "spot_extremes",
+        "paper", "sheet_overlap", "sheet_prefix",
+        "project_name", "drawing_title", "surveyor",
+    ):
         value = getattr(args, name, None)
         if value is not None:
             setattr(settings, name, value)
-    if getattr(args, "ground_filter", False):
-        settings.ground_filter = True
-    if getattr(args, "flatten_z", False):
-        settings.flatten_z = True
+
+    for flag in ("ground_filter", "flatten_z", "spot_heights", "spot_coords", "sheet_split"):
+        if getattr(args, flag, False):
+            setattr(settings, flag, True)
+
     if getattr(args, "no_preview", False):
         settings.make_preview = False
+
+    if getattr(args, "overlay_dxf", None):
+        settings.overlay_dxf = list(args.overlay_dxf)
+
+    # 표고점 옵션만 주고 --spot-heights를 빠뜨리는 실수를 막는다.
+    if (args.spot_spacing or args.spot_coords) and not settings.spot_heights:
+        settings.spot_heights = True
+
     return settings
 
 
@@ -61,6 +76,32 @@ def _add_common(p: argparse.ArgumentParser) -> None:
                    help="Z를 0으로 눕힌 평면도용 사본도 생성")
     p.add_argument("--no-preview", action="store_true", dest="no_preview",
                    help="검산용 PNG를 만들지 않음")
+
+    g = p.add_argument_group("표고점")
+    g.add_argument("--spot-heights", action="store_true", dest="spot_heights",
+                   help="격자 표고점을 찍고 표고를 기입")
+    g.add_argument("--spot-spacing", type=float, dest="spot_spacing",
+                   help="표고점 간격(m). 생략하면 축척에 맞는 기본값")
+    g.add_argument("--spot-coords", action="store_true", dest="spot_coords",
+                   help="표고와 함께 E/N 좌표도 기입")
+    g.add_argument("--spot-extremes", type=int, dest="spot_extremes",
+                   help="최고·최저 주요 지점을 각각 몇 개 표시할지")
+
+    g = p.add_argument_group("도곽")
+    g.add_argument("--sheet-split", action="store_true", dest="sheet_split",
+                   help="축척·용지에 맞춰 도곽을 나누고 레이아웃 생성")
+    g.add_argument("--paper", choices=["A0", "A1", "A2", "A3"], help="용지 규격")
+    g.add_argument("--sheet-overlap", type=float, dest="sheet_overlap",
+                   help="인접 도면이 겹치는 폭(m)")
+    g.add_argument("--sheet-prefix", dest="sheet_prefix",
+                   help="도면번호 접두사. 예: C-01-02-")
+
+    g = p.add_argument_group("중첩·표제란")
+    g.add_argument("--overlay", action="append", dest="overlay_dxf", default=None,
+                   metavar="DXF", help="겹칠 기존 도면(지적선 등). 여러 번 지정 가능")
+    g.add_argument("--project", dest="project_name", help="표제란 현장명")
+    g.add_argument("--title", dest="drawing_title", help="표제란 도면명")
+    g.add_argument("--surveyor", dest="surveyor", help="표제란 작성자")
     p.add_argument("-v", "--verbose", action="store_true")
     p.add_argument("--log", help="로그 파일 경로")
 
