@@ -166,8 +166,8 @@ s.addText("고정형 관제망의 이동형 확장", { x: 0.85, y: 2.16, w: 3.8,
 s.addText("이미 19,096대의 카메라와 85명의 관제 인력이\n돌아갑니다. 여기에 날아가는 카메라를 붙입니다.", { x: 0.85, y: 2.55, w: 3.8, h: 0.6, fontFace: F, fontSize: 10.5, color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 card(s, { x: 5.1, y: 1.7, w: 4.3, h: 1.55, fill: NAVY, line: NAVY });
 s.addText("공백 ②  절차", { x: 5.35, y: 1.85, w: 3.8, h: 0.3, fontFace: F, fontSize: 11, bold: true, color: "F2A65A", isTextBox: true, margin: 0 });
-s.addText("재량을 기본 동작으로", { x: 5.35, y: 2.16, w: 3.8, h: 0.36, fontFace: F, fontSize: 15, bold: true, color: WHITE, isTextBox: true, margin: 0 });
-s.addText("판단과 무관하게 최소한의 공중 확인이 수행되고,\n그 절차가 로그로 남습니다.", { x: 5.35, y: 2.55, w: 3.8, h: 0.6, fontFace: F, fontSize: 10.5, color: ICE, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+s.addText("재량을 기본 동작으로 · 제3의 기록", { x: 5.35, y: 2.16, w: 3.8, h: 0.36, fontFace: F, fontSize: 15, bold: true, color: WHITE, isTextBox: true, margin: 0 });
+s.addText("판단과 무관하게 공중 확인이 수행되고, 비행·촬영\n기록이 담당자 보고와 다른 계통에 남습니다.", { x: 5.35, y: 2.55, w: 3.8, h: 0.6, fontFace: F, fontSize: 10.5, color: ICE, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 const rows = [
   [{ text: "구분", options: { fill: { color: NAVY }, color: WHITE, bold: true } },
    { text: "현행  ·  동원형", options: { fill: { color: NAVY }, color: WHITE, bold: true } },
@@ -175,7 +175,7 @@ const rows = [
   ["상공 확보", "수십 분", "3 ~ 5분"],
   ["야간 · 저시정", "사실상 제한", "열화상 + 자동비행으로 상시"],
   ["역할", "사후 수색", "선제 인지 + 출동 유도"],
-  ["기록", "담당자 보고에 의존", "출동 · 확인 자동 로그"],
+  ["기록", "담당자 보고에 의존", "출동 · 확인 자동 로그 (별도 계통)"],
 ];
 s.addTable(rows, { x: 0.6, y: 3.45, w: 8.8, colW: [2.0, 3.4, 3.4], rowH: 0.33,
   fontFace: F, fontSize: 11, color: NAVY, valign: "middle",
@@ -249,7 +249,8 @@ rules.forEach((r, i) => {
   s.addText(r[0], { x: x + 0.22, y: y + 0.14, w: 3.9, h: 0.36, fontFace: F, fontSize: 15, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
   s.addText(r[1], { x: x + 0.22, y: y + 0.52, w: 3.9, h: 0.6, fontFace: F, fontSize: 11, color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 });
-foot(s, "＋  민간 드론 인력 등록제 · 출동 계약제 — 자원봉사가 아니라 산업으로");
+s.addText("＋  민간 드론 인력 등록제 · 출동 계약제 — 자원봉사가 아니라 산업으로", { x: 0.6, y: 4.55, w: 8.8, h: 0.32, fontFace: F, fontSize: 12.5, bold: true, color: NAVY, isTextBox: true, margin: 0 });
+s.addText("＋  도착 소요시간 · 초동 확인 수행률을 정기 공개 — 괴담은 확인할 방법이 없을 때 자랍니다", { x: 0.6, y: 4.9, w: 8.8, h: 0.32, fontFace: F, fontSize: 12.5, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
 
 /* ---------- 12. 다목적 ---------- */
 s = pres.addSlide();
