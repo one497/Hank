@@ -238,7 +238,7 @@ s = pres.addSlide();
 titleBlock(s, "제언 ③   거버넌스 — 조례가 곧 면허증", "기체를 띄우기 전에 원칙을 먼저 세웁니다", false, 28);
 const rules = [
   ["촬영 사실 표시", "언제 어디서 촬영되는지\n도민이 알 수 있게 한다"],
-  ["목적 외 이용 금지", "신고 기반 출동 원칙,\n상시 배회 감시가 아니다"],
+  ["목적 외 이용 금지", "신고 기반 출동 원칙.\n특정 집단 감시 수단이 아니다"],
   ["보관기간 · 접근 로그", "누가 언제 어떤 영상을\n열람했는지 자동 기록"],
   ["도민 감시기구", "운영 실태를 도민이\n직접 점검한다"],
 ];
@@ -250,7 +250,7 @@ rules.forEach((r, i) => {
   s.addText(r[1], { x: x + 0.22, y: y + 0.52, w: 3.9, h: 0.6, fontFace: F, fontSize: 11, color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 });
 s.addText("＋  민간 드론 인력 등록제 · 출동 계약제 — 자원봉사가 아니라 산업으로", { x: 0.6, y: 4.55, w: 8.8, h: 0.32, fontFace: F, fontSize: 12.5, bold: true, color: NAVY, isTextBox: true, margin: 0 });
-s.addText("＋  도착 소요시간 · 초동 확인 수행률을 정기 공개 — 괴담은 확인할 방법이 없을 때 자랍니다", { x: 0.6, y: 4.9, w: 8.8, h: 0.32, fontFace: F, fontSize: 12.5, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
+s.addText("＋  '제주 안전 대시보드' — 신고와 해제 건수, 초동 확인 시간을 도가 직접 공개", { x: 0.6, y: 4.9, w: 8.8, h: 0.32, fontFace: F, fontSize: 12.5, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
 
 /* ---------- 12. 다목적 ---------- */
 s = pres.addSlide();
