@@ -181,6 +181,26 @@ s.addTable(rows, { x: 0.6, y: 3.45, w: 8.8, colW: [2.0, 3.4, 3.4], rowH: 0.33,
   fontFace: F, fontSize: 11, color: NAVY, valign: "middle",
   border: { type: "solid", color: "DCE5EC", pt: 1 }, fill: { color: WHITE }, margin: 0.08, autoPage: false });
 
+/* ---------- 8. 검증된 모델 ---------- */
+s = pres.addSlide();
+titleBlock(s, "새로운 실험이 아닙니다", "이미 운영되고 있고, 국내에도 선례가 있습니다");
+const cases = [
+  ["미국 출라비스타 경찰", "2018년~", "누적 출동 25,000건 이상\n그중 17,170건 드론 선도착\n평균 3.5분 (순찰차 8분)\nOECD 혁신사례 등재"],
+  ["전남경찰청 드론팀", "2026. 2. 출범", "지상·공중 입체순찰\n5월 담양 실종자를 CCTV로\n동선 파악 후 드론 수색으로\n담양호 상류에서 발견"],
+  ["일본 지바현 이치노미야초", "운영 중", "쓰나미 경보 수신 시\n드론이 자동 이륙\n해안 대피 방송 + 촬영\n방재 부서가 운영"],
+];
+cases.forEach((c, i) => {
+  const x = 0.6 + i * 2.98;
+  card(s, { x, y: 1.7, w: 2.84, h: 2.5 });
+  s.addText(c[0], { x: x + 0.22, y: 1.86, w: 2.4, h: 0.36, fontFace: F, fontSize: 13.5, bold: true, color: NAVY, isTextBox: true, margin: 0 });
+  s.addText(c[1], { x: x + 0.22, y: 2.22, w: 2.4, h: 0.26, fontFace: F, fontSize: 10, color: PRIMARY, isTextBox: true, margin: 0 });
+  s.addText(c[2], { x: x + 0.22, y: 2.56, w: 2.4, h: 1.4, fontFace: F, fontSize: 10.5, color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
+});
+s.addShape(pres.ShapeType.roundRect, { x: 0.6, y: 4.38, w: 8.8, h: 0.66, rectRadius: 0.06, fill: { color: SOFT }, line: { color: LINEC, width: 1 } });
+s.addText("다만 과장하지 않겠습니다 — 연구는 \"드론 투입 시 약 3분 단축, 전체 발견 성공률은 유사\"라고 말합니다.", { x: 0.8, y: 4.38, w: 8.4, h: 0.33, fontFace: F, fontSize: 11.5, color: NAVY, valign: "middle", isTextBox: true, margin: 0 });
+s.addText("그리고 그 연구의 결론은 \"성패는 기체가 아니라 훈련과 절차에 달려 있다\"는 것입니다.", { x: 0.8, y: 4.68, w: 8.4, h: 0.33, fontFace: F, fontSize: 11.5, bold: true, color: PRIMARY, valign: "middle", isTextBox: true, margin: 0 });
+src(s, "출처: City of Chula Vista · OECD OPSI · 머니투데이(2026.9.8) · DroneLife / Drone Efficacy Study(AOPA)");
+
 /* ---------- 8. 왜 제주에서 가능한가 ---------- */
 s = pres.addSlide();
 titleBlock(s, "왜 제주에서 가능한가", "이 네 가지가 동시에 갖춰진 곳은 제주뿐입니다");
