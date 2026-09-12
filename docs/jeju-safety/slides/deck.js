@@ -1,24 +1,30 @@
 const pptxgen = require("pptxgenjs");
 const pres = new pptxgen();
 pres.layout = "LAYOUT_16x9"; // 10 x 5.625
-pres.author = "";
 pres.title = "3분 안에 뜨는 제주";
 
 const NAVY = "10243A", PRIMARY = "065A82", TEAL = "1C7293",
       ICE = "CADCFC", SOFT = "F2F6F9", WHITE = "FFFFFF",
-      GRAY = "5A6A78", CORAL = "E0523C", MIST = "8FB4C9";
+      GRAY = "5A6A78", CORAL = "E0523C", MIST = "8FB4C9", LINEC = "E3EAF0";
 const F = "맑은 고딕";
 const sh = () => ({ type: "outer", color: "0B1B2B", blur: 8, offset: 2, angle: 90, opacity: 0.12 });
 
 function titleBlock(s, t, sub, dark, size) {
-  s.addText(t, { x: 0.6, y: 0.42, w: 8.8, h: 0.62, fontFace: F, fontSize: size || 32, bold: true,
+  s.addText(t, { x: 0.6, y: 0.42, w: 8.8, h: 0.62, fontFace: F, fontSize: size || 30, bold: true,
     color: dark ? WHITE : NAVY, isTextBox: true, margin: 0 });
   if (sub) s.addText(sub, { x: 0.6, y: 1.03, w: 8.8, h: 0.36, fontFace: F, fontSize: 13,
     color: dark ? MIST : GRAY, isTextBox: true, margin: 0 });
 }
 function card(s, o) {
   s.addShape(pres.ShapeType.roundRect, { x: o.x, y: o.y, w: o.w, h: o.h, rectRadius: 0.06,
-    fill: { color: o.fill || SOFT }, line: { color: o.line || (o.fill ? o.fill : "E3EAF0"), width: 1 }, shadow: sh() });
+    fill: { color: o.fill || SOFT }, line: { color: o.line || (o.fill ? o.fill : LINEC), width: 1 }, shadow: sh() });
+}
+function foot(s, t, dark) {
+  s.addText(t, { x: 0.6, y: 4.82, w: 8.8, h: 0.4, fontFace: F, fontSize: 12,
+    color: dark ? MIST : NAVY, isTextBox: true, margin: 0 });
+}
+function src(s, t) {
+  s.addText(t, { x: 0.6, y: 5.22, w: 8.8, h: 0.28, fontFace: F, fontSize: 8.5, color: "8895A2", isTextBox: true, margin: 0 });
 }
 
 /* ---------- 1. 표지 ---------- */
@@ -34,55 +40,83 @@ s.addText("안전한 제주를 만들기 위한 정책 제언", {
   x: 0.75, y: 4.25, w: 8.5, h: 0.34, fontFace: F, fontSize: 14, color: MIST, isTextBox: true, margin: 0 });
 s.addText("[회사명]  ·  [OOO 대표]  ·  2026. 9. 18.", {
   x: 0.75, y: 4.62, w: 8.5, h: 0.34, fontFace: F, fontSize: 12, color: "7E93A4", isTextBox: true, margin: 0 });
-s.addNotes("도정이 이미 잘하고 있는 것을 인정하는 데서 출발한다. 비판이 아니라 보완 제안임을 톤으로 전달할 것.");
+s.addNotes("제주가 위험하다는 말로 시작하지 않는다. 자료를 먼저 확인했다는 태도로 연다.");
 
-/* ---------- 2. 제주가 이미 가진 것 ---------- */
+/* ---------- 2. 자원 지표 ---------- */
 s = pres.addSlide();
-titleBlock(s, "제주가 이미 가진 것", "자산은 이미 갖춰져 있습니다");
+titleBlock(s, "제주는 자원이 부족한 곳이 아닙니다", "발제를 준비하며 공개 통계를 먼저 확인했습니다");
 const assets = [
-  ["유일", "전국 유일 자치경찰단", "도지사가 직접 지휘하는\n치안 자원"],
-  ["최초", "전국 최초 AI 치안드론", "2027년 현장 투입 예정\n(국비 8억 · 도비 2억)"],
-  ["1,283㎢", "전국 최대 드론특구", "비가시권 · 야간 실증이\n제도적으로 가능"],
-  ["1,543명", "민관 공동체 치안망", "주민자치경찰대 · 시니어\n민간경비 · 민간드론"],
+  ["314명", "경찰관 1인당 담당인구", "전국 평균 391명보다\n오히려 적습니다"],
+  ["19,096대", "방범용 CCTV", "인구 1,000명당 28.8대\n전국 평균의 두 배"],
+  ["85명", "통합관제센터 관제요원", "5조 3교대\n24시간 관제"],
+  ["9,717건", "CCTV 관제 사고 예방", "전년 대비 40% 증가\n(2025년)"],
 ];
 assets.forEach((a, i) => {
   const x = 0.6 + i * 2.26;
   card(s, { x, y: 1.72, w: 2.06, h: 2.55 });
-  s.addText(a[0], { x: x + 0.16, y: 1.95, w: 1.74, h: 0.55, fontFace: F, fontSize: 24, bold: true,
+  s.addText(a[0], { x: x + 0.16, y: 1.95, w: 1.74, h: 0.55, fontFace: F, fontSize: 22, bold: true,
     color: PRIMARY, isTextBox: true, margin: 0 });
-  s.addText(a[1], { x: x + 0.16, y: 2.55, w: 1.74, h: 0.6, fontFace: F, fontSize: 13, bold: true,
+  s.addText(a[1], { x: x + 0.16, y: 2.55, w: 1.74, h: 0.6, fontFace: F, fontSize: 12, bold: true,
     color: NAVY, isTextBox: true, margin: 0 });
   s.addText(a[2], { x: x + 0.16, y: 3.18, w: 1.74, h: 0.95, fontFace: F, fontSize: 10,
     color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
 });
-s.addText("새 사업을 만들자는 제안이 아닙니다. 있는 자산을 잇자는 제안입니다.", {
-  x: 0.6, y: 4.55, w: 8.8, h: 0.4, fontFace: F, fontSize: 14, color: NAVY, isTextBox: true, margin: 0 });
+foot(s, "인력도, 장비도, 관제 체계도 전국 평균보다 앞서 있습니다.");
+src(s, "출처: 경찰청 경찰통계연보(2024) · 제주특별자치도 CCTV 운영 현황(2025 상반기) — 원자료 재확인 필요");
 
-/* ---------- 3. 비어 있는 한 칸 ---------- */
+/* ---------- 3. 범죄율 1위, 분모의 문제 ---------- */
+s = pres.addSlide();
+titleBlock(s, "'범죄율 전국 1위'는 분모의 문제입니다", "범죄 건수에는 관광객이 들어가고, 분모에는 들어가지 않습니다");
+card(s, { x: 0.6, y: 1.7, w: 4.25, h: 1.5 });
+s.addText("공표 범죄 발생비", { x: 0.85, y: 1.85, w: 3.7, h: 0.3, fontFace: F, fontSize: 11, color: GRAY, isTextBox: true, margin: 0 });
+s.addText("4,193.8건", { x: 0.85, y: 2.15, w: 3.7, h: 0.55, fontFace: F, fontSize: 30, bold: true, color: CORAL, isTextBox: true, margin: 0 });
+s.addText("인구 10만 명당 · 전국 1위 · 분모 66만 명", { x: 0.85, y: 2.72, w: 3.7, h: 0.3, fontFace: F, fontSize: 10, color: GRAY, isTextBox: true, margin: 0 });
+card(s, { x: 5.15, y: 1.7, w: 4.25, h: 1.5, fill: NAVY, line: NAVY });
+s.addText("생활인구 82만 명으로 보정", { x: 5.4, y: 1.85, w: 3.7, h: 0.3, fontFace: F, fontSize: 11, color: MIST, isTextBox: true, margin: 0 });
+s.addText("약 3,390건", { x: 5.4, y: 2.15, w: 3.7, h: 0.55, fontFace: F, fontSize: 30, bold: true, color: WHITE, isTextBox: true, margin: 0 });
+s.addText("전국 평균 3,343건과 거의 같습니다", { x: 5.4, y: 2.72, w: 3.7, h: 0.3, fontFace: F, fontSize: 10, color: ICE, isTextBox: true, margin: 0 });
+[["1,384만 명", "2025년 제주 방문 관광객"], ["66만 명", "주민등록인구 (2026. 6.)"], ["82만 명", "도 추계 생활인구"]].forEach((d, i) => {
+  const x = 0.6 + i * 2.98;
+  s.addShape(pres.ShapeType.roundRect, { x, y: 3.45, w: 2.84, h: 0.82, rectRadius: 0.06, fill: { color: SOFT }, line: { color: LINEC, width: 1 } });
+  s.addText(d[0], { x: x + 0.18, y: 3.55, w: 2.5, h: 0.36, fontFace: F, fontSize: 16, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
+  s.addText(d[1], { x: x + 0.18, y: 3.92, w: 2.5, h: 0.28, fontFace: F, fontSize: 10, color: GRAY, isTextBox: true, margin: 0 });
+});
+foot(s, "그렇다면 질문이 달라져야 합니다 — 부족하지 않은데, 왜 불안은 줄지 않는가.");
+src(s, "출처: 경찰청 2025 범죄통계 · 행정안전부 주민등록인구 · 제주도관광협회 / 보정치는 단순 안분에 따른 개략 검산");
+
+/* ---------- 4. 공백은 두 곳 ---------- */
 s = pres.addSlide();
 s.background = { color: NAVY };
-titleBlock(s, "그런데 왜 불안은 줄지 않는가", "네 가지 자산을 잇는 한 칸이 비어 있습니다", true);
-["자치경찰단", "AI 치안드론", "드론특구", "공동체 치안망"].forEach((t, i) => {
-  const x = 0.6 + i * 2.26;
-  s.addShape(pres.ShapeType.roundRect, { x, y: 1.75, w: 2.06, h: 0.85, rectRadius: 0.06,
-    fill: { color: "1B3A57" }, line: { color: "1B3A57", width: 0 } });
-  s.addText(t, { x, y: 1.75, w: 2.06, h: 0.85, fontFace: F, fontSize: 13, color: ICE,
-    align: "center", valign: "middle", isTextBox: true, margin: 0 });
+titleBlock(s, "비어 있는 곳은 두 군데뿐입니다", "둘 다 사람을 더 뽑아서 메울 수 없는 공백입니다", true);
+const gaps = [
+  ["공백 ①", "자원이 닿지 않는 공간", [
+    ["CCTV 19,096대", "전부 고정형 — 정해진 지점만 봅니다"],
+    ["산악사고 5년 2,547건", "올해 실족·추락 107건 = 작년 한 해의 90.7%"],
+    ["수난사고 6월 70건 → 7월 126건", "오름·곶자왈·해안절벽·올레길에는 카메라가 없습니다"]]],
+  ["공백 ②", "자동으로 작동하지 않는 초동 절차", [
+    ["성인 실종신고 70,814건", "전국, 지난해 접수 기준"],
+    ["99.7% 수색 없이 종결", "89.4%는 하루 안에 해제"],
+    ["판단은 담당자 재량", "올해 제주에서 흔들린 것은 범죄율이 아니라 초동대응 신뢰였습니다"]]],
+];
+gaps.forEach((g, i) => {
+  const x = 0.6 + i * 4.5;
+  s.addShape(pres.ShapeType.roundRect, { x, y: 1.6, w: 4.3, h: 3.1, rectRadius: 0.06,
+    fill: { color: "1B3A57" }, line: { color: "27506F", width: 1 } });
+  s.addText(g[0], { x: x + 0.24, y: 1.75, w: 3.8, h: 0.28, fontFace: F, fontSize: 11, bold: true, color: CORAL, isTextBox: true, margin: 0 });
+  s.addText(g[1], { x: x + 0.24, y: 2.03, w: 3.8, h: 0.36, fontFace: F, fontSize: 16, bold: true, color: WHITE, isTextBox: true, margin: 0 });
+  g[2].forEach((r, j) => {
+    const y = 2.52 + j * 0.7;
+    s.addText(r[0], { x: x + 0.24, y, w: 3.8, h: 0.28, fontFace: F, fontSize: 12, bold: true, color: ICE, isTextBox: true, margin: 0 });
+    s.addText(r[1], { x: x + 0.24, y: y + 0.27, w: 3.8, h: 0.38, fontFace: F, fontSize: 9.5, color: MIST, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+  });
 });
-s.addShape(pres.ShapeType.roundRect, { x: 0.6, y: 3.0, w: 8.8, h: 1.15, rectRadius: 0.04,
-  fill: { color: NAVY }, line: { color: CORAL, width: 2, dashType: "dash" } });
-s.addText("비어 있는 것 :  신고 즉시 뜨는 '출동 체계'", {
-  x: 0.7, y: 3.0, w: 8.6, h: 1.15, fontFace: F, fontSize: 22, bold: true, color: CORAL,
-  align: "center", valign: "middle", isTextBox: true, margin: 0 });
-s.addText("기체가 없어서가 아니라, 기체를 배치하는 방식이 비어 있습니다.", {
-  x: 0.6, y: 4.4, w: 8.8, h: 0.4, fontFace: F, fontSize: 14, color: MIST, align: "center", isTextBox: true, margin: 0 });
+foot(s, "하나는 공간의 문제, 하나는 기본 동작의 문제입니다.", true);
+src(s, "출처: 제주도 CCTV 운영 현황 · 소방 구조활동 통계 · 경찰청 실종신고 처리 현황");
 
-/* ---------- 4. 문제는 시간이다 ---------- */
+/* ---------- 5. 문제는 시간이다 ---------- */
 s = pres.addSlide();
-titleBlock(s, "문제는 '시간'입니다", "신고가 접수된 시점과, 하늘에서 그곳을 처음 본 시점 사이");
-function timeline(y, label, steps, result, color, resultColor) {
-  s.addText(label, { x: 0.6, y: y + 0.12, w: 0.95, h: 0.4, fontFace: F, fontSize: 13, bold: true,
-    color: NAVY, isTextBox: true, margin: 0 });
+titleBlock(s, "공간의 공백은 '시간'으로 나타납니다", "신고가 접수된 시점과, 하늘에서 그곳을 처음 본 시점 사이");
+function timeline(y, steps, result, color, resultColor) {
   steps.forEach((t, i) => {
     const x = 1.62 + i * 1.63;
     s.addShape(pres.ShapeType.roundRect, { x, y, w: 1.48, h: 0.62, rectRadius: 0.06,
@@ -96,28 +130,11 @@ function timeline(y, label, steps, result, color, resultColor) {
     color: resultColor, align: "right", valign: "middle", isTextBox: true, margin: 0 });
 }
 s.addText("현행  ·  동원형", { x: 0.6, y: 1.62, w: 3.0, h: 0.3, fontFace: F, fontSize: 11, bold: true, color: CORAL, isTextBox: true, margin: 0 });
-timeline(1.95, "", ["신고 접수", "인력 이동", "현장 도착", "이륙"], "수십 분", "FBE7E3", CORAL);
+timeline(1.95, ["신고 접수", "인력 이동", "현장 도착", "이륙"], "수십 분", "FBE7E3", CORAL);
 s.addText("제안  ·  상시 출동형", { x: 0.6, y: 3.05, w: 3.0, h: 0.3, fontFace: F, fontSize: 11, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
-timeline(3.38, "", ["신고 접수", "자동 이륙"], "3~5분", "E1EEF4", PRIMARY);
-s.addText("실종·조난의 초기 3시간이, 장비를 현장까지 옮기는 데 소모되고 있습니다.", {
-  x: 0.6, y: 4.55, w: 8.8, h: 0.4, fontFace: F, fontSize: 14, color: NAVY, isTextBox: true, margin: 0 });
-
-/* ---------- 5. 지상 순찰이 닿지 않는 곳 ---------- */
-s = pres.addSlide();
-titleBlock(s, "지상 순찰이 닿지 않는 곳", "사고와 실종은 도심이 아니라 이곳에 몰립니다");
-["올레길", "오름 · 곶자왈", "해안 절벽", "야간 해수욕장", "한라산 주요 탐방로"].forEach((t, i) => {
-  const y = 1.72 + i * 0.62;
-  s.addShape(pres.ShapeType.ellipse, { x: 0.62, y: y + 0.11, w: 0.2, h: 0.2, fill: { color: TEAL }, line: { color: TEAL, width: 0 } });
-  s.addText(t, { x: 0.98, y, w: 3.6, h: 0.42, fontFace: F, fontSize: 15, color: NAVY,
-    valign: "middle", isTextBox: true, margin: 0 });
-});
-card(s, { x: 5.1, y: 1.68, w: 4.3, h: 2.6, fill: NAVY, line: NAVY });
-s.addText("순찰차가 들어갈 수 없는 곳", { x: 5.4, y: 2.0, w: 3.7, h: 0.6, fontFace: F, fontSize: 20,
-  bold: true, color: WHITE, isTextBox: true, margin: 0 });
-s.addText("지상 인력을 아무리 늘려도\n도달 시간은 줄지 않는 구조입니다.\n\n하늘에서 접근하는 수단이\n인력을 대신하는 것이 아니라,\n인력이 갈 곳을 정해 줍니다.", {
-  x: 5.4, y: 2.62, w: 3.7, h: 1.5, fontFace: F, fontSize: 12, color: ICE, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
-s.addText("면적 1,850㎢, 해안선과 중산간이 함께 있는 제주의 지형 조건", {
-  x: 0.6, y: 4.85, w: 8.8, h: 0.35, fontFace: F, fontSize: 11, color: GRAY, isTextBox: true, margin: 0 });
+timeline(3.38, ["신고 접수", "자동 이륙"], "3~5분", "E1EEF4", PRIMARY);
+foot(s, "실종·조난의 초기 시간이, 장비를 현장까지 옮기는 데 소모됩니다.");
+src(s, "※ 제주의 112·119 현장 도착 소요시간 실측치는 미공개. '수십 분'은 현행 운용 방식에서 도출한 추정치 — 도가 보유한 실측치 공개를 제언에 포함");
 
 /* ---------- 6. DFR ---------- */
 s = pres.addSlide();
@@ -125,7 +142,7 @@ titleBlock(s, "DFR — 사람보다 먼저 도착하는 눈", "Drone as First Re
 const steps = [
   ["112 · 119 신고 접수", "신고 정보가 관제센터로\n즉시 연동됩니다."],
   ["무인 격납고 자동 이륙", "사람이 출발하기 전에\n기체가 먼저 뜹니다."],
-  ["실시간 영상 공유", "관제센터와 출동 인력이\n동시에 현장을 봅니다."],
+  ["실시간 영상 공유 · 자동 기록", "관제센터와 출동 인력이\n동시에 봅니다. 로그가 남습니다."],
 ];
 steps.forEach((st, i) => {
   const x = 0.6 + i * 2.98;
@@ -133,36 +150,56 @@ steps.forEach((st, i) => {
   s.addShape(pres.ShapeType.ellipse, { x: x + 0.24, y: 1.96, w: 0.5, h: 0.5, fill: { color: PRIMARY }, line: { color: PRIMARY, width: 0 } });
   s.addText(String(i + 1), { x: x + 0.24, y: 1.96, w: 0.5, h: 0.5, fontFace: F, fontSize: 16, bold: true,
     color: WHITE, align: "center", valign: "middle", isTextBox: true, margin: 0 });
-  s.addText(st[0], { x: x + 0.24, y: 2.62, w: 2.36, h: 0.5, fontFace: F, fontSize: 14, bold: true,
+  s.addText(st[0], { x: x + 0.24, y: 2.62, w: 2.36, h: 0.5, fontFace: F, fontSize: 13, bold: true,
     color: NAVY, isTextBox: true, margin: 0 });
-  s.addText(st[1], { x: x + 0.24, y: 3.16, w: 2.36, h: 0.8, fontFace: F, fontSize: 11, color: GRAY,
+  s.addText(st[1], { x: x + 0.24, y: 3.16, w: 2.36, h: 0.8, fontFace: F, fontSize: 10.5, color: GRAY,
     isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 });
-s.addText("AI가 아무리 좋아도 기체가 30분 뒤에 뜨면 소용이 없습니다. 그 AI를 태울 출동 체계가 필요합니다.", {
-  x: 0.6, y: 4.5, w: 8.8, h: 0.4, fontFace: F, fontSize: 13, color: NAVY, isTextBox: true, margin: 0 });
+foot(s, "기술 제안이라기보다, 행정 절차 설계에 가까운 제안입니다.");
 
-/* ---------- 7. 비교표 ---------- */
+/* ---------- 7. 두 공백을 하나로 ---------- */
 s = pres.addSlide();
-titleBlock(s, "무엇이 달라지는가", "같은 기체라도 배치를 바꾸면 역할이 달라집니다");
-const hdr = o => ({ fill: { color: NAVY }, color: WHITE, bold: true });
+titleBlock(s, "하나의 장치가 두 공백을 메웁니다", "새 감시망을 만들자는 제안이 아닙니다");
+card(s, { x: 0.6, y: 1.7, w: 4.3, h: 1.55 });
+s.addText("공백 ①  공간", { x: 0.85, y: 1.85, w: 3.8, h: 0.3, fontFace: F, fontSize: 11, bold: true, color: CORAL, isTextBox: true, margin: 0 });
+s.addText("고정형 관제망의 이동형 확장", { x: 0.85, y: 2.16, w: 3.8, h: 0.36, fontFace: F, fontSize: 15, bold: true, color: NAVY, isTextBox: true, margin: 0 });
+s.addText("이미 19,096대의 카메라와 85명의 관제 인력이\n돌아갑니다. 여기에 날아가는 카메라를 붙입니다.", { x: 0.85, y: 2.55, w: 3.8, h: 0.6, fontFace: F, fontSize: 10.5, color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+card(s, { x: 5.1, y: 1.7, w: 4.3, h: 1.55, fill: NAVY, line: NAVY });
+s.addText("공백 ②  절차", { x: 5.35, y: 1.85, w: 3.8, h: 0.3, fontFace: F, fontSize: 11, bold: true, color: "F2A65A", isTextBox: true, margin: 0 });
+s.addText("재량을 기본 동작으로", { x: 5.35, y: 2.16, w: 3.8, h: 0.36, fontFace: F, fontSize: 15, bold: true, color: WHITE, isTextBox: true, margin: 0 });
+s.addText("판단과 무관하게 최소한의 공중 확인이 수행되고,\n그 절차가 로그로 남습니다.", { x: 5.35, y: 2.55, w: 3.8, h: 0.6, fontFace: F, fontSize: 10.5, color: ICE, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 const rows = [
-  [{ text: "구분", options: hdr() }, { text: "현행  ·  동원형", options: hdr() }, { text: "제안  ·  상시 출동형", options: hdr() }],
-  ["이륙 주체", "현장에 도착한 조종 인력", "관제센터 원격 · 자동"],
+  [{ text: "구분", options: { fill: { color: NAVY }, color: WHITE, bold: true } },
+   { text: "현행  ·  동원형", options: { fill: { color: NAVY }, color: WHITE, bold: true } },
+   { text: "제안  ·  상시 출동형", options: { fill: { color: NAVY }, color: WHITE, bold: true } }],
   ["상공 확보", "수십 분", "3 ~ 5분"],
   ["야간 · 저시정", "사실상 제한", "열화상 + 자동비행으로 상시"],
   ["역할", "사후 수색", "선제 인지 + 출동 유도"],
-  ["인력 소모", "건당 다수 투입", "관제 1명이 다수 거점 운용"],
+  ["기록", "담당자 보고에 의존", "출동 · 확인 자동 로그"],
 ];
-s.addTable(rows, {
-  x: 0.6, y: 1.75, w: 8.8, colW: [2.0, 3.4, 3.4], rowH: 0.44,
-  fontFace: F, fontSize: 12, color: NAVY, valign: "middle",
-  border: { type: "solid", color: "DCE5EC", pt: 1 },
-  fill: { color: WHITE }, margin: 0.08, autoPage: false,
-});
-s.addText("출동 인력이 '가기 전에' 현장을 봅니다. 한정된 인력을 꼭 필요한 곳에 쓰게 됩니다.", {
-  x: 0.6, y: 4.65, w: 8.8, h: 0.4, fontFace: F, fontSize: 13, color: NAVY, isTextBox: true, margin: 0 });
+s.addTable(rows, { x: 0.6, y: 3.45, w: 8.8, colW: [2.0, 3.4, 3.4], rowH: 0.33,
+  fontFace: F, fontSize: 11, color: NAVY, valign: "middle",
+  border: { type: "solid", color: "DCE5EC", pt: 1 }, fill: { color: WHITE }, margin: 0.08, autoPage: false });
 
-/* ---------- 8. 제언 1 ---------- */
+/* ---------- 8. 왜 제주에서 가능한가 ---------- */
+s = pres.addSlide();
+titleBlock(s, "왜 제주에서 가능한가", "이 네 가지가 동시에 갖춰진 곳은 제주뿐입니다");
+const why = [
+  ["전국 유일", "자치경찰단 169명", "제주특별법 제88조\n도지사 소속"],
+  ["전국 최초", "AI 치안드론", "국비 8억 · 도비 2억\n2027년 현장 투입"],
+  ["전국 최대", "드론특별자유화구역", "1,283㎢\n3차 연장(2027.6) 신청"],
+  ["1,543명", "민관 공동체 치안망", "주민자치경찰대 · 시니어\n민간경비 · 민간드론"],
+];
+why.forEach((a, i) => {
+  const x = 0.6 + i * 2.26;
+  card(s, { x, y: 1.72, w: 2.06, h: 2.55 });
+  s.addText(a[0], { x: x + 0.16, y: 1.95, w: 1.74, h: 0.4, fontFace: F, fontSize: 17, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
+  s.addText(a[1], { x: x + 0.16, y: 2.42, w: 1.74, h: 0.6, fontFace: F, fontSize: 13, bold: true, color: NAVY, isTextBox: true, margin: 0 });
+  s.addText(a[2], { x: x + 0.16, y: 3.1, w: 1.74, h: 0.95, fontFace: F, fontSize: 10, color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+});
+foot(s, "새 사업을 만들자는 제안이 아닙니다. 있는 자산을 하나의 출동 체계로 잇자는 제안입니다.");
+
+/* ---------- 9. 제언 1 ---------- */
 s = pres.addSlide();
 titleBlock(s, "제언 ①   거점 — '3분 도달' 네트워크", "새 부지가 아니라, 있는 시설 위에 얹는 방식입니다", false, 28);
 card(s, { x: 0.6, y: 1.7, w: 3.0, h: 1.45, fill: NAVY, line: NAVY });
@@ -177,15 +214,12 @@ const sites = ["제주시 동부 권역", "제주시 서부 권역", "서귀포 
 sites.forEach((t, i) => {
   const x = 3.95 + (i % 2) * 2.78;
   const y = 2.2 + Math.floor(i / 2) * 0.62;
-  s.addShape(pres.ShapeType.roundRect, { x, y, w: 2.62, h: 0.5, rectRadius: 0.06,
-    fill: { color: SOFT }, line: { color: "E3EAF0", width: 1 } });
-  s.addText(t, { x: x + 0.14, y, w: 2.4, h: 0.5, fontFace: F, fontSize: 11, color: NAVY,
-    valign: "middle", isTextBox: true, margin: 0 });
+  s.addShape(pres.ShapeType.roundRect, { x, y, w: 2.62, h: 0.5, rectRadius: 0.06, fill: { color: SOFT }, line: { color: LINEC, width: 1 } });
+  s.addText(t, { x: x + 0.14, y, w: 2.4, h: 0.5, fontFace: F, fontSize: 11, color: NAVY, valign: "middle", isTextBox: true, margin: 0 });
 });
-s.addText("도달 시간과 발견율 데이터를 확보한 뒤 도 전역으로 확대", {
-  x: 3.95, y: 4.78, w: 5.45, h: 0.35, fontFace: F, fontSize: 11, color: GRAY, isTextBox: true, margin: 0 });
+s.addText("배치 우선순위는 도가 이미 운영 중인 인구빅데이터(생활인구·입도객)로 결정", { x: 3.95, y: 4.78, w: 5.45, h: 0.35, fontFace: F, fontSize: 10.5, color: GRAY, isTextBox: true, margin: 0 });
 
-/* ---------- 9. 제언 2 ---------- */
+/* ---------- 10. 제언 2 ---------- */
 s = pres.addSlide();
 titleBlock(s, "제언 ②   규제 — 특구 연장에 한 줄", "세 가지 제언 중 가장 빠르고, 가장 적은 비용으로 가능합니다", false, 28);
 s.addText("1,283㎢", { x: 0.6, y: 1.75, w: 4.1, h: 0.85, fontFace: F, fontSize: 42, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
@@ -197,10 +231,9 @@ s.addText("치안 · 구조 목적\n비가시권(BVLOS) · 야간비행\n상시 
 s.addText("DFR 체계의 기술적 전제가 바로 이 두 가지입니다.", { x: 5.4, y: 3.6, w: 3.7, h: 0.4, fontFace: F, fontSize: 11, color: ICE, isTextBox: true, margin: 0 });
 s.addShape(pres.ShapeType.roundRect, { x: 0.6, y: 4.4, w: 8.8, h: 0.62, rectRadius: 0.08, fill: { color: CORAL }, line: { color: CORAL, width: 0 } });
 s.addText("국회 입법을 기다릴 필요가 없습니다 — 제주도 권한 안에서, 신청서 한 줄로 열리는 문입니다", {
-  x: 0.6, y: 4.4, w: 8.8, h: 0.62, fontFace: F, fontSize: 14, bold: true, color: WHITE,
-  align: "center", valign: "middle", isTextBox: true, margin: 0 });
+  x: 0.6, y: 4.4, w: 8.8, h: 0.62, fontFace: F, fontSize: 14, bold: true, color: WHITE, align: "center", valign: "middle", isTextBox: true, margin: 0 });
 
-/* ---------- 10. 제언 3 ---------- */
+/* ---------- 11. 제언 3 ---------- */
 s = pres.addSlide();
 titleBlock(s, "제언 ③   거버넌스 — 조례가 곧 면허증", "기체를 띄우기 전에 원칙을 먼저 세웁니다", false, 28);
 const rules = [
@@ -216,14 +249,13 @@ rules.forEach((r, i) => {
   s.addText(r[0], { x: x + 0.22, y: y + 0.14, w: 3.9, h: 0.36, fontFace: F, fontSize: 15, bold: true, color: PRIMARY, isTextBox: true, margin: 0 });
   s.addText(r[1], { x: x + 0.22, y: y + 0.52, w: 3.9, h: 0.6, fontFace: F, fontSize: 11, color: GRAY, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 });
-s.addText("＋  민간 드론 인력 등록제 · 출동 계약제 — 자원봉사가 아니라 산업으로", {
-  x: 0.6, y: 4.62, w: 8.8, h: 0.4, fontFace: F, fontSize: 14, bold: true, color: NAVY, isTextBox: true, margin: 0 });
+foot(s, "＋  민간 드론 인력 등록제 · 출동 계약제 — 자원봉사가 아니라 산업으로");
 
-/* ---------- 11. 다목적 ---------- */
+/* ---------- 12. 다목적 ---------- */
 s = pres.addSlide();
 titleBlock(s, "하나의 인프라, 여러 임무", "치안 예산만으로 짓는 시설이 아닙니다");
 function chip(x, y, w, t, d) {
-  s.addShape(pres.ShapeType.roundRect, { x, y, w, h: 0.82, rectRadius: 0.06, fill: { color: SOFT }, line: { color: "E3EAF0", width: 1 } });
+  s.addShape(pres.ShapeType.roundRect, { x, y, w, h: 0.82, rectRadius: 0.06, fill: { color: SOFT }, line: { color: LINEC, width: 1 } });
   s.addText(t, { x: x + 0.16, y: y + 0.1, w: w - 0.32, h: 0.32, fontFace: F, fontSize: 13, bold: true, color: NAVY, isTextBox: true, margin: 0 });
   s.addText(d, { x: x + 0.16, y: y + 0.42, w: w - 0.32, h: 0.3, fontFace: F, fontSize: 10, color: GRAY, isTextBox: true, margin: 0 });
 }
@@ -233,15 +265,14 @@ chip(0.9, 3.72, 2.7, "수자원 점검", "하천 · 저수지 · 급경사지");
 chip(6.4, 3.72, 2.7, "환경 모니터링", "해안 침식 · 해양쓰레기 유입");
 s.addShape(pres.ShapeType.roundRect, { x: 3.85, y: 2.5, w: 2.3, h: 1.0, rectRadius: 0.08, fill: { color: NAVY }, line: { color: NAVY, width: 0 }, shadow: sh() });
 s.addText("드론 스테이션", { x: 3.85, y: 2.5, w: 2.3, h: 1.0, fontFace: F, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle", isTextBox: true, margin: 0 });
-s.addText("부서가 나눠 쓰면 비용은 줄고 가동률은 올라갑니다 — '기후경제수도 제주' 비전과 맞물리는 지점", {
-  x: 0.6, y: 4.78, w: 8.8, h: 0.4, fontFace: F, fontSize: 12, color: NAVY, isTextBox: true, margin: 0 });
+foot(s, "부서가 나눠 쓰면 비용은 줄고 가동률은 올라갑니다 — '기후경제수도 제주' 비전과 맞물리는 지점");
 
-/* ---------- 12. 로드맵 · 지표 ---------- */
+/* ---------- 13. 로드맵 · 지표 ---------- */
 s = pres.addSlide();
 s.background = { color: NAVY };
 titleBlock(s, "로드맵과 지표", "2027년에 데이터로 증명합니다", true);
 const phases = [
-  ["2026. 4분기", "준비", "특구 연장 신청 반영\n조례안 입안\n대상지 선정"],
+  ["2026. 4분기", "준비", "특구 연장 신청 반영\n조례안 입안\n도착시간 실측 공개"],
   ["2027. 상반기", "실증", "스테이션 2~3개소\nAI 치안드론 연계\n도달시간 측정"],
   ["2027. 하반기", "확산", "8개소 확대\n112·119·해경 공동대응\n민간 출동 계약제"],
   ["2028", "정착", "도 전역 운영\n부서 공동 활용\n제주형 표준모델"],
@@ -255,13 +286,13 @@ phases.forEach((p, i) => {
   s.addText(p[2], { x: x + 0.16, y: 2.42, w: 1.76, h: 0.95, fontFace: F, fontSize: 9.5, color: ICE, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
 });
 s.addText("성과 지표", { x: 0.6, y: 3.62, w: 3.0, h: 0.28, fontFace: F, fontSize: 11, bold: true, color: MIST, isTextBox: true, margin: 0 });
-const kpis = ["신고~상공 도달 시간", "초기 3시간 내 발견율", "야간 순찰 커버리지", "체감 안전도", "출동 인력 절감"];
+const kpis = ["신고~상공 도달 시간", "초동 확인 자동 수행률", "야간 순찰 커버리지", "체감 안전도", "출동 인력 절감"];
 kpis.forEach((k, i) => {
   const x = 0.6 + i * 1.79;
   s.addShape(pres.ShapeType.roundRect, { x, y: 3.95, w: 1.66, h: 0.62, rectRadius: 0.06, fill: { color: "16334D" }, line: { color: "27506F", width: 1 } });
   s.addText(k, { x: x + 0.08, y: 3.95, w: 1.5, h: 0.62, fontFace: F, fontSize: 9.5, color: ICE, align: "center", valign: "middle", isTextBox: true, margin: 0 });
 });
-s.addText("\"신고가 들어오고 3분 뒤, 하늘에서 그곳을 볼 수 있는가\"  —  그것이 안전의 실질입니다.", {
+s.addText("\"신고 3분 뒤 하늘에서 그곳을 볼 수 있는가, 그 확인이 기록으로 남는가\"", {
   x: 0.6, y: 4.82, w: 8.8, h: 0.42, fontFace: F, fontSize: 14, bold: true, color: WHITE, isTextBox: true, margin: 0 });
 s.addNotes("마무리: 제주가 먼저 하면 전국이 따라 쓰는 제주형 표준 모델이자, 제주가 수출하는 산업이 된다.");
 
