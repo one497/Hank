@@ -1,0 +1,462 @@
+<title>진짜 지도 인수인계</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@600;700&display=swap">
+<style>
+  :root{
+    --paper:#F2F5F6; --surface:#FFFFFF; --sunk:#E9EFF1;
+    --ink:#15242E; --ink-2:#3D5460; --muted:#68808B;
+    --line:#D6E0E4; --line-strong:#B9C9D0;
+    --blue:#0B6E8F; --blue-soft:#E2EEF3;
+    --clay:#BC5526; --clay-soft:#F7E7DE;
+    --good:#1F7A5C; --good-soft:#E0F0E9;
+    --shadow:0 1px 2px rgba(21,36,46,.06), 0 8px 24px -16px rgba(21,36,46,.28);
+    --serif:"Noto Serif KR", Georgia, serif;
+    --sans:"IBM Plex Sans KR", system-ui, -apple-system, sans-serif;
+    --mono:"IBM Plex Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E171D; --surface:#16232B; --sunk:#111C23;
+      --ink:#E7EEF1; --ink-2:#B6C6CE; --muted:#8399A3;
+      --line:#25353E; --line-strong:#33474F;
+      --blue:#5CB6D6; --blue-soft:#14303C;
+      --clay:#E2865A; --clay-soft:#33211A;
+      --good:#4FBE96; --good-soft:#142B24;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E171D; --surface:#16232B; --sunk:#111C23;
+    --ink:#E7EEF1; --ink-2:#B6C6CE; --muted:#8399A3;
+    --line:#25353E; --line-strong:#33474F;
+    --blue:#5CB6D6; --blue-soft:#14303C;
+    --clay:#E2865A; --clay-soft:#33211A;
+    --good:#4FBE96; --good-soft:#142B24;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+       font-size:15px;line-height:1.72;margin:0;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:0 72px}
+
+  /* ── header ── */
+  header{position:relative;overflow:hidden;border-bottom:1px solid var(--line);
+         background:var(--surface);margin-bottom:40px}
+  header::before{content:"";position:absolute;inset:0;opacity:.5;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:28px 28px;
+    -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.65),transparent 78%);
+    mask-image:linear-gradient(180deg,rgba(0,0,0,.65),transparent 78%)}
+  .head-inner{position:relative;max-width:1120px;margin:0 auto;
+              padding-inline:20px;padding-block:44px 36px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;
+           text-transform:uppercase;color:var(--blue);margin:0 0 14px}
+  h1{font-family:var(--serif);font-weight:700;font-size:clamp(30px,5.4vw,46px);
+     line-height:1.22;letter-spacing:-.02em;margin:0;text-wrap:balance}
+  .sub{font-size:16px;color:var(--ink-2);margin:12px 0 0;max-width:62ch}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+  .chip{font-family:var(--mono);font-size:12px;padding:5px 10px;
+        border:1px solid var(--line-strong);border-radius:3px;color:var(--ink-2);
+        background:var(--paper);font-variant-numeric:tabular-nums}
+  .chip b{color:var(--ink);font-weight:500}
+
+  /* ── layout ── */
+  .cols{display:grid;grid-template-columns:184px minmax(0,1fr);gap:44px;align-items:start}
+  nav{position:sticky;top:20px;font-size:13px;line-height:1.5}
+  nav p{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;
+        text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+  nav ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  nav a{display:flex;gap:9px;color:var(--ink-2);text-decoration:none;
+        padding:5px 8px;border-radius:3px;border-left:2px solid transparent}
+  nav a:hover{background:var(--sunk);color:var(--ink)}
+  nav a:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+  nav a span{font-family:var(--mono);font-size:11px;color:var(--muted);
+             font-variant-numeric:tabular-nums}
+
+  main{min-width:0;display:flex;flex-direction:column;gap:48px}
+  section{scroll-margin-top:20px}
+  h2{font-family:var(--serif);font-weight:700;font-size:23px;letter-spacing:-.01em;
+     margin:0 0 6px;display:flex;align-items:baseline;gap:11px;text-wrap:balance}
+  h2 i{font-family:var(--mono);font-style:normal;font-size:12px;color:var(--blue);
+       letter-spacing:.06em;flex:none}
+  .lede{color:var(--ink-2);margin:0 0 20px;max-width:66ch}
+  h3{font-size:14.5px;font-weight:600;margin:26px 0 8px;letter-spacing:-.005em}
+  p{margin:0 0 13px;max-width:70ch}
+  strong{font-weight:600}
+  em{font-style:normal;background:var(--clay-soft);color:var(--clay);
+     padding:1px 5px;border-radius:2px;font-weight:500}
+  code{font-family:var(--mono);font-size:.885em;background:var(--sunk);
+       padding:2px 5px;border-radius:3px;color:var(--ink-2)}
+
+  /* ── blocks ── */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:5px;
+         padding:22px 24px;box-shadow:var(--shadow)}
+  .panel > :last-child{margin-bottom:0}
+  .quote{border-left:3px solid var(--clay);padding:4px 0 4px 18px;margin:0 0 18px;
+         font-family:var(--serif);font-size:18px;line-height:1.62;color:var(--ink)}
+  .note{background:var(--blue-soft);border:1px solid var(--line);border-radius:4px;
+        padding:14px 17px;font-size:14px;color:var(--ink-2)}
+  .note strong{color:var(--ink)}
+  .warn{background:var(--clay-soft);border:1px solid var(--line);border-radius:4px;
+        padding:14px 17px;font-size:14px;color:var(--ink-2)}
+  .warn strong{color:var(--clay)}
+
+  .tbl{overflow-x:auto;border:1px solid var(--line);border-radius:5px;
+       background:var(--surface)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:460px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);
+        vertical-align:top}
+  th{font-size:11px;font-family:var(--mono);letter-spacing:.09em;
+     text-transform:uppercase;color:var(--muted);font-weight:400;
+     background:var(--sunk);white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.path{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+
+  .flow{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none;
+        border:1px solid var(--line);border-radius:5px;overflow:hidden;
+        background:var(--surface)}
+  .flow li{display:grid;grid-template-columns:64px minmax(0,1fr) 58px;gap:16px;
+           padding:13px 18px;border-bottom:1px solid var(--line);align-items:baseline}
+  .flow li:last-child{border-bottom:0}
+  .flow .step{font-family:var(--mono);font-size:11px;color:var(--blue);
+              letter-spacing:.06em}
+  .flow .dur{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+             text-align:right;font-variant-numeric:tabular-nums}
+  .flow b{font-weight:600}
+  .flow small{display:block;color:var(--muted);font-size:12.5px;line-height:1.55}
+
+  .three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .three > div{background:var(--surface);border:1px solid var(--line);
+               border-radius:5px;padding:18px;box-shadow:var(--shadow)}
+  .three h4{font-family:var(--serif);font-size:19px;font-weight:700;margin:0 0 4px}
+  .three p{font-size:13px;color:var(--ink-2);margin:0 0 12px}
+  .three .cap{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
+              color:var(--blue);text-transform:uppercase;margin:0;
+              padding-top:11px;border-top:1px solid var(--line)}
+
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .vs > div{border:1px solid var(--line);border-radius:5px;padding:18px}
+  .vs .a{background:var(--sunk)}
+  .vs .b{background:var(--surface);box-shadow:var(--shadow)}
+  .vs h4{font-family:var(--mono);font-size:11px;letter-spacing:.09em;
+         text-transform:uppercase;margin:0 0 12px;font-weight:400}
+  .vs .a h4{color:var(--muted)}
+  .vs .b h4{color:var(--clay)}
+  .vs ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;
+         font-size:13.5px}
+  .vs .a li{color:var(--muted)}
+  .vs li::before{content:"—  ";color:var(--line-strong)}
+
+  ul.plain{margin:0 0 14px;padding-left:20px;display:flex;flex-direction:column;gap:7px}
+  ul.plain li{max-width:68ch}
+  ul.check{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+  ul.check li{display:grid;grid-template-columns:16px minmax(0,1fr);gap:11px;
+              font-size:14px;align-items:start}
+  ul.check li::before{content:"";width:13px;height:13px;margin-top:5px;
+    border:1.5px solid var(--line-strong);border-radius:2px;display:block}
+
+  .stat{display:flex;gap:0;border:1px solid var(--line);border-radius:5px;
+        overflow:hidden;background:var(--surface)}
+  .stat > div{flex:1;padding:16px 18px;border-right:1px solid var(--line)}
+  .stat > div:last-child{border-right:0}
+  .stat .v{font-family:var(--mono);font-size:26px;font-weight:500;color:var(--blue);
+           font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat .k{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.45}
+
+  footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
+         font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 20px}
+  footer span{font-family:var(--mono)}
+
+  @media (max-width:860px){
+    .cols{grid-template-columns:1fr;gap:28px}
+    nav{position:static;border:1px solid var(--line);border-radius:5px;
+        padding:14px 16px;background:var(--surface)}
+    nav ol{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:2px}
+    .three,.vs{grid-template-columns:1fr}
+    .stat{flex-direction:column}
+    .stat > div{border-right:0;border-bottom:1px solid var(--line)}
+    .stat > div:last-child{border-bottom:0}
+  }
+  @media (max-width:460px){
+    .flow li{grid-template-columns:1fr;gap:3px}
+    .flow .dur{text-align:left}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header>
+  <div class="head-inner">
+    <p class="eyebrow">인수인계 · 2026.09.13</p>
+    <h1>진짜 지도</h1>
+    <p class="sub">2026 코리아스타트업포럼 제주 혁신 대담 발표 준비. 정책제안에서 1인칭 경험 발표로 전면 재기획한 상태이며, 원고·슬라이드·조사자료가 모두 갖춰져 있다. 남은 것은 대표님 본인의 현장 이야기 한 토막이다.</p>
+    <div class="meta">
+      <span class="chip">발표 <b>2026. 9. 18.</b></span>
+      <span class="chip">분량 <b>10분 / 슬라이드 12장</b></span>
+      <span class="chip">repo <b>one497/Hank</b></span>
+      <span class="chip">branch <b>claude/jeju-safety-solution-kprga9</b></span>
+      <span class="chip">PR <b>#4 (draft)</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+  <nav aria-label="목차">
+    <p>목차</p>
+    <ol>
+      <li><a href="#s1"><span>01</span>지금 방향</a></li>
+      <li><a href="#s2"><span>02</span>발표 구조</a></li>
+      <li><a href="#s3"><span>03</span>역량 = 3단계</a></li>
+      <li><a href="#s4"><span>04</span>확정된 판단</a></li>
+      <li><a href="#s5"><span>05</span>쓰는 숫자</a></li>
+      <li><a href="#s6"><span>06</span>파일 지도</a></li>
+      <li><a href="#s7"><span>07</span>남은 작업</a></li>
+      <li><a href="#s8"><span>08</span>조사 요약</a></li>
+      <li><a href="#s9"><span>09</span>환경 한계</a></li>
+      <li><a href="#s10"><span>10</span>이어받기</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <section id="s1">
+    <h2><i>01</i>지금 방향</h2>
+    <p class="lede">처음에는 정책제안으로 만들었다가 전면 재기획했다. 동력이 정책이 아니라 감정이기 때문이다.</p>
+    <div class="quote">“귤보디아라는 말이 싫었습니다. 그런데 반박할 말이 없었습니다. 그래서 지도를 만들기로 했습니다.”</div>
+    <p>이번 사태에서 가장 멀리 퍼진 것은 긴 글이 아니라 <strong>점을 찍은 지도 한 장</strong>이었다. 제주도의 대응은 유포 자제 요청이었다. <strong>부탁으로는 그림을 이기지 못한다.</strong> 그림을 이기는 것은 더 정확한 그림이고, 지도를 만드는 일은 회사의 본업이다. 이 대비가 발표 전체를 관통한다.</p>
+    <div class="vs">
+      <div class="a">
+        <h4>떠도는 지도</h4>
+        <ul>
+          <li>점만 찍혀 있다</li>
+          <li>누가 만들었는지 모른다</li>
+          <li>“여기서 사라졌다”</li>
+          <li>공포를 만든다</li>
+        </ul>
+      </div>
+      <div class="b">
+        <h4>진짜 지도</h4>
+        <ul>
+          <li>지형과 접근로가 있다</li>
+          <li>누가 언제 쟀는지 남는다</li>
+          <li>“여기는 몇 분 만에 닿는다”</li>
+          <li>대응을 만든다</li>
+        </ul>
+      </div>
+    </div>
+    <p style="margin-top:16px">폐기한 정책제안본(「3분 안에 뜨는 제주」)은 지우지 않고 <code>archive/정책제안본/</code>에 보관했다. 도지사에게 세 가지를 요청하는 구조였고, 통계로 문제를 세우는 방식이었다.</p>
+  </section>
+
+  <section id="s2">
+    <h2><i>02</i>발표 구조</h2>
+    <p class="lede">7구간 10분. 통계를 앞에 세우지 않고, 경험 → 관찰 → 대안 순으로 간다.</p>
+    <ol class="flow">
+      <li><span class="step">여는 말</span><span><b>화가 났습니다</b><small>그 별명을 봤다. 화는 나는데 반박할 말이 없었다</small></span><span class="dur">1분</span></li>
+      <li><span class="step">자기소개</span><span><b>저는 땅을 재는 사람입니다</b><small>토목 · 수자원 · 드론 측량. 안전 전문가가 아니라는 것을 먼저 밝힌다</small></span><span class="dur">1분</span></li>
+      <li><span class="step">경험</span><span><b>현장에서 늘 겪는 일</b><small>위험한 곳일수록 직접 가야 한다 — <em>이 발표의 심장</em></small></span><span class="dur">1.5분</span></li>
+      <li><span class="step">연결</span><span><b>이번 일도 똑같았습니다</b><small>닿지 않는 곳 / 확인했다는 기록이 남지 않았다</small></span><span class="dur">1.5분</span></li>
+      <li><span class="step">전환</span><span><b>점만 있는 지도 vs 진짜 지도</b><small>“그건 지도가 아니라 공포입니다”</small></span><span class="dur">1.5분</span></li>
+      <li><span class="step">제안</span><span><b>재고 · 짓고 · 남긴다</b><small>회사 역량 3가지와 1:1. 자랑은 여기서 딱 한 번</small></span><span class="dur">2분</span></li>
+      <li><span class="step">맺음</span><span><b>부정하지 말고, 증명하면 됩니다</b><small>“저는 제주가 그런 말로 불리는 게 싫습니다”</small></span><span class="dur">1.5분</span></li>
+    </ol>
+    <div class="note" style="margin-top:16px"><strong>시간이 모자라면</strong> 2번을 두 문장으로 줄이고 6번의 ‘짓는다’를 한 문장으로 줄인다. <strong>3번은 절대 버리지 않는다.</strong></div>
+  </section>
+
+  <section id="s3">
+    <h2><i>03</i>회사 역량이 곧 구조다</h2>
+    <p class="lede">확정된 역량 세 가지가 제안의 3단계와 정확히 맞아떨어진다. 이것이 이번 기획의 축이다.</p>
+    <div class="three">
+      <div>
+        <h4>잰다</h4>
+        <p>사고·실종 다발 구간을 정밀 측량해 지형·경사·접근로·도달 시간이 들어간 지도를 만든다.</p>
+        <p class="cap">드론 운용 · 촬영 · 측량</p>
+      </div>
+      <div>
+        <h4>짓는다</h4>
+        <p>그 지도 위에 거점을 놓는다. 전기·통신·관제 인력이 이미 있는 시설에 얹는 구조.</p>
+        <p class="cap">토목 · 시설 설계 및 시공</p>
+      </div>
+      <div>
+        <h4>남긴다</h4>
+        <p>신고가 오면 자동으로 뜨고, 언제 어디를 봤는지가 사람의 보고와 다른 계통에 남는다.</p>
+        <p class="cap">관제 · 소프트웨어 · 데이터</p>
+      </div>
+    </div>
+    <p style="margin-top:16px">드론 업체는 짓지 못하고, 건설사는 날리지 못하며, 소프트웨어 회사는 둘 다 못 한다. <strong>재고–짓고–남기는 일을 한 회사가 끊기지 않고 이어서 한다</strong>는 것이 내세울 유일한 강점이다. 독점을 주장하지는 않는다.</p>
+  </section>
+
+  <section id="s4">
+    <h2><i>04</i>확정된 판단</h2>
+    <p class="lede">되돌리려면 이유가 있어야 하는 결정들. 각각 근거가 자료에 남아 있다.</p>
+
+    <h3>‘귤보디아’를 첫 문장에 둔다</h3>
+    <p>조사 자료(<code>07</code>)에서는 괴담 단어를 금기로 정했으나 이번 기획은 반대로 간다. <strong>제3자가 인용하면 확산이지만, 상처받은 당사자가 말하면 반박</strong>이기 때문이다. 안전장치는 세 가지 — ① 여는 말과 맺음말에 두 번만 ② 뜻을 설명하지 않는다 ③ 다른 괴담은 하나도 인용하지 않는다. 단어를 쓰지 않는 <strong>대체 버전</strong>도 원고와 슬라이드 노트에 함께 들어 있다.</p>
+
+    <h3>숫자를 셋으로 줄였다</h3>
+    <p>경험으로 설득하는 발표에서 숫자가 늘어나면 3번 구간의 현장 이야기가 묻힌다. 의도적인 축소다.</p>
+
+    <h3>효과를 과장하지 않는다</h3>
+    <p>수색구조 드론 연구는 드론 투입 시 <strong>약 3분 단축, 전체 발견율은 유사</strong>하다고 보고한다. 그 연구의 결론이 <strong>“성패는 기체가 아니라 훈련과 절차”</strong> 인데, 이것이 오히려 발표의 논지를 뒷받침하므로 그대로 인용한다. 표현의 선도 정해뒀다 — “찾을 수 있습니다”(✗) / “더 빨리 확인하게 해줍니다”(○).</p>
+
+    <h3>발표에서 하지 않는 말</h3>
+    <ul class="plain">
+      <li><strong>사건명·피해자·유족·담당 경찰관</strong> — 수사와 재판이 진행 중이다</li>
+      <li><strong>다른 괴담</strong> — 장기밀매설, 실종의 섬, 택시 괴담. 반복이 곧 확산이다</li>
+      <li><strong>외국인·국적·불법체류·특정 정치인 발언</strong> — 이 사안은 이미 그쪽으로 번졌고, 드론 제안이 ‘특정 집단 감시’로 읽히면 되돌릴 수 없다</li>
+      <li><strong>경찰·도청 비판</strong> — 시스템 이야기만 한다</li>
+      <li><strong>“저희에게 맡겨 주시면”</strong> — 수주 이야기로 들리는 순간 끝이다</li>
+      <li><strong>관광객 감소 수치</strong> — 업계 관계자가 있는 자리다</li>
+    </ul>
+  </section>
+
+  <section id="s5">
+    <h2><i>05</i>본문에 쓰는 숫자</h2>
+    <p class="lede">셋뿐이다. 발표 전 원자료로 재확인이 필요하다.</p>
+    <div class="stat">
+      <div><div class="v">786</div><div class="k">지난해 제주 성인 실종신고<br>전국 70,814건의 1.1% (인구 비중 1.3%)</div></div>
+      <div><div class="v">19,096</div><div class="k">제주 방범용 CCTV (2025 상반기)<br>인구 1,000명당 28.8대 · 전국 평균의 2배</div></div>
+      <div><div class="v">3분</div><div class="k">드론 투입 시 발견 시간 단축<br>단, 전체 발견율은 유사</div></div>
+    </div>
+    <h3>검증 상태</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>항목</th><th>출처</th><th>상태</th></tr></thead>
+        <tbody>
+          <tr><td>제주 성인 실종신고 786건</td><td>경찰청 (JTBC 팩트체크 경유)</td><td>2차 인용 · 원자료 확인 필요</td></tr>
+          <tr><td>방범 CCTV 19,096대</td><td>제주특별자치도 (언론 경유)</td><td>2차 인용 · 인구로 검산 일치</td></tr>
+          <tr><td>드론 3분 단축</td><td>Drone Efficacy Study (AOPA)</td><td>연구 인용 · 한계 함께 명시</td></tr>
+          <tr><td>112·119 현장 도착 소요시간</td><td>—</td><td><strong>미확보.</strong> 원고에서 추정임을 밝힘</td></tr>
+          <tr><td>범죄 발생비</td><td>경찰청 2025 범죄통계</td><td>언론마다 4,193.8 / 4,540 혼재</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="warn" style="margin-top:14px"><strong>원자료 확인 경로</strong>는 <code>05_근거자료_문제정의.md</code> §7에 기관별로 정리돼 있다. 확보하지 못한 데이터와 정보공개청구 방법은 §8.</div>
+  </section>
+
+  <section id="s6">
+    <h2><i>06</i>파일 지도</h2>
+    <p class="lede">전부 <code>docs/jeju-safety/</code> 아래에 있다.</p>
+    <h3>발표 자료 — 현재 버전</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>파일</th><th>용도</th></tr></thead>
+        <tbody>
+          <tr><td class="path">10_발표기획.md</td><td>여기부터 읽는다. 방향 전환 이유, 톤, ‘귤보디아’ 사용 기준</td></tr>
+          <tr><td class="path">11_발표원고.md</td><td>10분 1인칭 원고</td></tr>
+          <tr><td class="path">11a_현장이야기_예시.md</td><td>3번 구간 예시 5개 + 기억을 꺼내는 질문 5개</td></tr>
+          <tr><td class="path">12_슬라이드구성.md</td><td>12장 구성과 제작 지침</td></tr>
+          <tr><td class="path">13_예상질문.md</td><td>예상 질문 대응</td></tr>
+          <tr><td class="path">14_우리가할수있는것.md</td><td>역량과 역할의 경계, 못 하는 것의 명시</td></tr>
+          <tr><td class="path">진짜지도_발표자료.pptx</td><td>슬라이드 12장</td></tr>
+          <tr><td class="path">slides/deck.js</td><td>pptxgenjs 생성 스크립트</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>조사 자료 — 그대로 유효</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>파일</th><th>용도</th></tr></thead>
+        <tbody>
+          <tr><td class="path">05_근거자료_문제정의.md</td><td>통계 지표, 출처, 원자료 확인 경로, 미확보 데이터</td></tr>
+          <tr><td class="path">06_여론지형과_우리입장.md</td><td>사실관계 시점별 정리, 각 주체 공식 입장</td></tr>
+          <tr><td class="path">07_SNS여론조사.md</td><td>플랫폼별 확산 양상, 주장 7가지 사실 여부</td></tr>
+          <tr><td class="path">08_국내외사례.md</td><td>국내외 선례, 효과의 실제 크기, 프라이버시 반대 논거</td></tr>
+          <tr><td class="path">archive/정책제안본/</td><td>폐기한 정책제안 버전 일체 (참고용 보관)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s7">
+    <h2><i>07</i>남은 작업</h2>
+    <p class="lede">대표님이 아니면 채울 수 없는 것과, 확인만 하면 되는 것.</p>
+    <h3>대표님 몫</h3>
+    <ul class="check">
+      <li><strong>원고 3번 구간의 현장 이야기 한 토막 (30~45초).</strong> 이 발표의 심장이다. 언제 어디서 무엇을 확인하러 갔고, 얼마나 걸렸고, 그때 무슨 생각이 들었는지. 끝은 사건의 결말이 아니라 생각으로 맺는다. 예시와 질문은 <code>11a</code>에 있고, <strong>예시는 전부 지어낸 것이므로 반드시 실제 기억으로 바꿔야 한다</strong></li>
+      <li><strong>슬라이드 5번의 현장 사진.</strong> 실제로 찍은 사진이어야 한다. 스톡 이미지를 쓰면 이 발표는 죽는다. 사람보다 접근이 막힌 지형 사진이 낫다</li>
+      <li>회사명·성명·연락처 (<code>[OOO]</code> 자리)</li>
+      <li>보유 드론 기종·대수·열화상 여부, 조종 자격, 최근 3년 측량 실적, 관제·SW가 자체인지 파트너인지 (<code>14</code> §5)</li>
+      <li>시범 측량을 무상으로 해드릴 의향이 있는지 — 있다면 매우 강력한 제안이 된다</li>
+    </ul>
+    <h3>확인만 하면 되는 것</h3>
+    <ul class="check">
+      <li>발표 시간이 10분이 맞는지, 질의응답이 붙는지 (포럼 확인)</li>
+      <li>포럼이 제작하는 대표 소개 슬라이드와 4번 슬라이드가 겹치는지 — 겹치면 4번을 덜어낸다</li>
+      <li>다른 발표자의 주제 (중복 회피)</li>
+      <li>본문 숫자 3개 원자료 확인</li>
+      <li><strong>PowerPoint에서 한 번 열어 글자 넘침 확인</strong> — 아래 09 참고</li>
+    </ul>
+  </section>
+
+  <section id="s8">
+    <h2><i>08</i>조사 요약</h2>
+    <p class="lede">발표에 직접 쓰지는 않지만, 질의응답에서 필요한 것들.</p>
+
+    <h3>온라인 주장과 사실</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>주장</th><th>사실</th></tr></thead>
+        <tbody>
+          <tr><td>“1년에 성인 1,000명 실종”</td><td><strong>거짓.</strong> 2025년 786건</td></tr>
+          <tr><td>“2,900여 명 행방불명”</td><td><strong>오독.</strong> 3년 7개월 누계 신고, 미발견 15명</td></tr>
+          <tr><td>“실종의 섬”</td><td><strong>통계와 반대.</strong> 인구 대비 신고율 서울 0.13% vs 제주 0.05%</td></tr>
+          <tr><td>장기밀매·인신매매설</td><td>근거 없음. 사인은 시신 부패로 불명</td></tr>
+          <tr><td>제주 택시 괴담</td><td>경찰 “일치하는 신고 없음”</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px">확산은 X의 지도 이미지, 쓰레드의 납치설, 유튜브의 무속·음모론 콘텐츠 순으로 컸다. 관광객은 8월 19~30일 내국인 기준 전년 대비 6.5% 감소했다. <strong>틀린 주장이 맞는 결과를 만들고 있다.</strong></p>
+
+    <h3>국내외 선례</h3>
+    <ul class="plain">
+      <li><strong>미국 출라비스타 경찰 DFR</strong>(2018~) — 누적 25,000건 이상 출동, 그중 17,170건에서 드론이 지상 인력보다 먼저 도착. 평균 3.5분 대 순찰차 8분. <strong>모든 임무 로그와 비행 지도를 일반에 공개</strong>하며 OECD 공공부문혁신관측소 혁신사례로 등재</li>
+      <li><strong>전남경찰청 드론팀</strong>(2026. 2. 출범) — 5월 담양에서 CCTV로 동선을 잡은 뒤 드론 수색으로 실종자 발견. ‘관제망의 이동형 확장’이 국내에서 이미 실증된 사례</li>
+      <li><strong>일본 지바현 이치노미야초</strong> — 쓰나미 경보 수신 시 드론이 자동 이륙해 해안 대피 방송. 방재 부서가 운영하며 대상은 해안의 관광객</li>
+      <li><strong>캘리포니아 AB 481</strong> — 경찰의 드론 취득과 이용 정책에 지방의회 승인과 공개 의견수렴을 의무화. EFF의 권고(도입 전 협의, 비행 로그 공개, 보관기한, 정기 재검토)와 함께 <code>08</code>에 정리</li>
+    </ul>
+  </section>
+
+  <section id="s9">
+    <h2><i>09</i>작업 환경의 한계</h2>
+    <p class="lede">이 세션에서 못 한 것들. 코덱스나 로컬에서는 가능할 수 있다.</p>
+    <ul class="plain">
+      <li><strong>슬라이드 렌더링 육안 검수를 하지 못했다.</strong> 컨테이너에 LibreOffice Impress가 없어 PDF/이미지 변환이 안 됐다. 스키마 검증과 좌표·텍스트 넘침 자동 점검은 통과했으므로 구조는 정상이지만, <strong>PowerPoint에서 한 번 열어보는 절차가 남아 있다</strong></li>
+      <li><strong>threads.com, 클리앙, 루리웹, 미디어오늘 등 다수 사이트의 원문 열람이 차단</strong>돼 있었다. SNS 조사는 검색엔진 노출분과 이를 인용한 언론을 교차해 재구성했고, 개별 게시물의 조회수·추천수는 확인하지 못했다</li>
+      <li><strong>국가법령정보센터 API를 쓰지 못했다.</strong> OC(회원 이메일 ID)가 설정돼 있지 않다. 법령 조문을 직접 인용하려면 이 값이 필요하다</li>
+      <li>한국어 폰트가 컨테이너에 없어, 슬라이드는 <code>맑은 고딕</code>으로 지정만 해두고 실제 렌더링은 확인하지 못했다</li>
+    </ul>
+  </section>
+
+  <section id="s10">
+    <h2><i>10</i>이어받기</h2>
+    <p class="lede">코덱스에서 계속하려면.</p>
+    <div class="panel">
+      <h3 style="margin-top:0">위치</h3>
+      <p>저장소 <code>one497/Hank</code>, 브랜치 <code>claude/jeju-safety-solution-kprga9</code>, 작업 디렉터리 <code>docs/jeju-safety/</code>. 열려 있는 draft PR은 <strong>#4</strong>이며 기본 브랜치는 <code>claude/analyze-service-completion-rates-9qGbN</code>이다. PR 정기 점검과 이벤트 구독은 해제했다.</p>
+      <h3>슬라이드 다시 만들기</h3>
+      <p><code>slides/deck.js</code>가 pptx를 생성한다. <code>npm install pptxgenjs</code> 후 <code>node deck.js ../진짜지도_발표자료.pptx</code>. 12장, 16:9, 맑은 고딕. 어두운 화면(1·2·3·12번)과 밝은 화면(4~11번)을 나눠 감정 구간과 설명 구간을 구분했다.</p>
+      <h3>먼저 할 일 순서</h3>
+      <ol class="plain" style="padding-left:22px">
+        <li>대표님 현장 이야기를 받아 <code>11_발표원고.md</code> 3번 구간에 넣는다</li>
+        <li>현장 사진을 받아 슬라이드 5번의 점선 자리에 넣는다</li>
+        <li><code>[OOO]</code>, <code>[회사명]</code>을 실제 정보로 바꾼다</li>
+        <li>PowerPoint에서 열어 글자 넘침을 확인한다</li>
+        <li>포럼에 보낼 회신 메일을 새로 쓴다 — <strong>보관된 이메일 초안은 정책제안본 기준이라 그대로 쓸 수 없다</strong></li>
+      </ol>
+      <div class="warn" style="margin-top:16px"><strong>건드리지 말 것.</strong> 괴담 이미지 원본을 슬라이드에 넣지 않는다. 통계 슬라이드 하단의 출처 각주를 지우지 않는다. 사건 현장 사진과 SNS 게시물 캡처는 한 장도 쓰지 않는다.</div>
+    </div>
+  </section>
+
+  <footer>
+    <span>docs/jeju-safety/인수인계.html</span>
+    <span>2026.09.13</span>
+    <span>발표까지 D-5</span>
+  </footer>
+
+  </main>
+</div>
+</div>
